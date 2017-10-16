@@ -1,0 +1,6 @@
+#! ~/Documents/ruby/tradesies
+require 'tradesies/runner'
+
+ticker = Tradesies::Ticker.new(ARGV)
+ticker.options.interval
+ticker.get_point
