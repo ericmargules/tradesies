@@ -5,7 +5,7 @@ module Tradesies
 
 		def get_point(opts = {})
 			opts['pair'] = @options.pair
-			puts get_public("Ticker", opts)
+			get_public("Ticker", opts)
 		end
 
 		private
