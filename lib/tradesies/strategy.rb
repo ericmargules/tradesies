@@ -25,6 +25,7 @@ module Tradesies
 			@prices << @current_price
 
 			harvest_candlestick if @prices.length >= 24
+			eval_positions if @prices.length >= 30
 
 			@output.log("Price: #{@current_price}")
 		end
@@ -40,18 +41,18 @@ module Tradesies
 		def eval_positions
 			open_trades = @trades.select{|trade| trade.status == :open }
 			if open_trades.any? 
-				open_trades[-1].sell if eval_sell
+				open_trades[-1].sell if sell?
 			end
 			if open_trades.length < @max_trades
-				@trades << Trade.new(@current_price) if eval_buy
+				@trades << Trade.new(@current_price) if buy?
 			end
 		end
 
-		def eval_buy
+		def buy?
 			lower_sma? || (upward_ema? && @ccis[-1] < -100)
 		end
 
-		def eval_sell
+		def sell?
 			higher_sma? || (downward_ema && @ccis[-1] > 100)
 		end
 
