@@ -1,12 +1,15 @@
 require_relative 'logger'
+require_relative 'indicator.rb'
+require_relative 'wallet'
 
 module Tradesies
 	class Strategy
-		attr_reader :prices, :trades, :candlesticks, :smas, :emas, :ccis
+		attr_reader :prices, :trades, :candlesticks, :smas, :emas, :ccis, :wallet
 
 		def initialize
 			@output = Logger.new
 			@indicator = Indicator.new
+			@wallet = Wallet.new(500.0)
 			@trades = []
 			@candlesticks = []
 			@prices = []
@@ -41,27 +44,35 @@ module Tradesies
 		def eval_positions
 			open_trades = @trades.select{|trade| trade.status == :open }
 			if open_trades.any? 
-				open_trades[-1].sell if sell?
+				if sell?
+					@output.log(open_trades[-1].sell(@current_price)) 
+					@wallet.balance = (open_trades[-1].close_price * open_trades[-1].units)
+					@output.log(@wallet.balance.to_s)
+				end
 			end
 			if open_trades.length < @max_trades
-				@trades << Trade.new(@current_price) if buy?
+				if buy?
+					@trades << Trade.new(@current_price, @wallet.balance) 
+					@wallet.balance = 0
+					@output.log(@trades[-1].show_trade)
+				end
 			end
 		end
 
 		def buy?
-			lower_sma? || (upward_ema? && @ccis[-1] < -100)
+			higher_sma? || (downward_ema? && @ccis[-1] > -100)
 		end
 
 		def sell?
-			higher_sma? || (downward_ema && @ccis[-1] > 100)
+			lower_sma? || (upward_ema? && @ccis[-1] < 100)
 		end
 
 		def lower_sma?
-			@sma[-1] < @ema[-1]
+			@smas[-1] < @emas[-1]
 		end
 
 		def higher_sma?
-			@sma[-1] > @ema[-1]
+			@smas[-1] > @emas[-1]
 		end
 
 		def upward_ema?
@@ -71,5 +82,6 @@ module Tradesies
 		def downward_ema?
 			emas[-1] < emas[-2] && emas[-2] < emas[-3]
 		end
+
 	end
 end
