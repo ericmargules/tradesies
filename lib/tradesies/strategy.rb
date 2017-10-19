@@ -4,7 +4,7 @@ require_relative 'wallet'
 
 module Tradesies
 	class Strategy
-		attr_reader :prices, :trades, :candlesticks, :smas, :emas, :ccis, :wallet
+		attr_reader :prices, :trades, :candlesticks, :emas, :ccis, :bbs, :wallet
 
 		def initialize
 			@output = Logger.new
@@ -17,9 +17,9 @@ module Tradesies
 			@max_trades = 1
 
 			# Here be indicators
-			@smas = []
 			@emas = []
 			@ccis = []
+			@bbs = []
 		end
 
 		def consume(candlestick)
@@ -27,8 +27,8 @@ module Tradesies
 			@current_price = candlestick["weightedAverage"]
 			@prices << @current_price
 
-			harvest_candlestick if @prices.length >= 24
-			eval_positions if @prices.length >= 30
+			harvest_candlestick if @prices.length >= 20
+			# eval_positions if @prices.length >= 30
 
 			@output.log("Price: #{@current_price}")
 		end
@@ -36,7 +36,7 @@ module Tradesies
 		private
 
 		def harvest_candlestick
-			@smas << @indicator.sma(@prices, 24)
+			@bbs << @indicator.bbands(@prices, 20)
 			@emas << @indicator.ema(@prices, 4)
 			@ccis << @indicator.cci(@candlesticks, 20)
 		end
@@ -85,3 +85,45 @@ module Tradesies
 
 	end
 end
+
+# Need ways to measure:
+
+# *Whether price crossed bands
+@price > @indicator.bbands(@prices, 20)
+# *Whether peak or nadir in price has occured
+def peak?
+	if @prices[-1] > @prices[-2]
+		@prices[-3] > @prices[-2]
+	elsif @prices[-1] < @prices[-2]
+		@prices[-3] < @prices[-2]
+	else
+		false
+	end
+end
+# *Noteworthy characteristics of last peak
+# *Occurrence of resistance or support bands
+	# examine last couple peaks
+	# measure whether their prices are within a certain range of one another
+# *When a resistance or support band has been broken
+# *When CCI enters and exits activation and extreme levels
+def activated_cci?
+	@activated_cci = (@ccis.last += 100 || @cci.last -= -100) ? :true : :false 
+end
+
+def extreme_cci?
+	@extreme_cci = (@ccis.last += 200 || @cci.last -= -200) ? :true : :false
+end
+
+# Simple Strategy
+# If price closes outside the band, trade after two closes within the band. 
+
+# Advanced Strategy
+
+# If price closes outside the bands, check for extreme_cci. 
+# If cci is extreme, consider trading. Otherwise wait until 
+# the next peak. If it closes within the band, consider trading. 
+# Otherwise, when the price approaches the middle band, check 
+# the CCI. If the CCI is activated, trade when it goes out of
+# activation. Otherwise trade when the price reverses after a 
+# trend, buy and hold until next time price crosses and reenters
+# a band.
