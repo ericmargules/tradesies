@@ -89,29 +89,39 @@ end
 # Need ways to measure:
 
 # *Whether price crossed bands
-@price > @indicator.bbands(@prices, 20)
-# *Whether peak or nadir in price has occured
+
+def inside_bands?
+	above_lower_band? && below_upper_band?
+end
+
+def above_lower_band?
+	@current_price > @bbs.last[:lower_band]
+end
+
+def below_upper_band?
+	@current_price < @bbs.last[:upper_band]
+end
+
+# *Whether significant peak or nadir in price has occured
 def peak?
 	if @prices[-1] > @prices[-2]
 		@prices[-3] > @prices[-2]
+		return (:>)
 	elsif @prices[-1] < @prices[-2]
 		@prices[-3] < @prices[-2]
+		return (:<)
 	else
 		false
 	end
 end
-# *Noteworthy characteristics of last peak
-# *Occurrence of resistance or support bands
-	# examine last couple peaks
-	# measure whether their prices are within a certain range of one another
-# *When a resistance or support band has been broken
+
 # *When CCI enters and exits activation and extreme levels
 def activated_cci?
-	@activated_cci = (@ccis.last += 100 || @cci.last -= -100) ? :true : :false 
+	@ccis.last += 75 || @cci.last -= -75 
 end
 
 def extreme_cci?
-	@extreme_cci = (@ccis.last += 200 || @cci.last -= -200) ? :true : :false
+	@ccis.last += 150 || @cci.last -= -150
 end
 
 # Simple Strategy
@@ -127,3 +137,63 @@ end
 # activation. Otherwise trade when the price reverses after a 
 # trend, buy and hold until next time price crosses and reenters
 # a band.
+
+# Test whether price closes outside band.
+# If so, identify if the price is higher or lower than the bands.
+# Check for extreme CCI.
+# If CCI is extreme, trade if possible next close within upper band
+# If CCI is not extreme, activate switch-watch and band-watch
+# On next switch, test whether price closes outside bands.
+# If not, make possible trade.
+# If so, test whether price falls outside opposite band.
+# If so, make possible sale.
+
+# switch_watch (whenever trade occurs, deactivate switch_watch)
+	# Test whether close is switch.
+		# If so, test whether switch closes inside bands.
+			# If so, test whether band_watch is activated.
+				# If so, test whether switch occurs with activated CCI.
+					# If so, make possible trade next close with deactivated CCI, deactivate switch_watch.
+					# If not, check whether switch happens on other side of middle band.
+						# If so, make possible trade, deactivate switch_watch.
+						# If not, do nothing.
+				# If not, make possible trade, deactivate switch_watch.
+			# If not, make possible trade, deactivate switch_watch, activate band_watch.
+		# If not, do nothing.
+
+# band_watch (on band_watch activation, activate switch_watch)
+	# Test whether close is a switch.
+		# If so, test whether switch occurs inside bands.
+			# If so, test whether switch has same orientation as band_watch.
+				# If so, make possible trade, deactivate band_watch.
+				# If not, do nothing.
+			# If not, test whether switch occurs on same side as previous band break.
+				# If so, make possible trade.
+				# If not, make possible trade, deactivate band_watch.
+		# If not, do nothing. 
+
+# *Noteworthy characteristics of last peak
+def slope_length(operator)
+	index = -2
+	length = 0
+	while @prices[index.pred].send(operator, @prices[index])
+		length += 1
+		index -= 1
+	end
+	length
+end
+
+def slope_coverage(length)
+	@prices[-2] - @prices[-2 - length]
+end
+
+def significant_peak?()
+	# What constitutes a significant peak?
+	# Length >= 4
+	# Coverage >= (Upper Bollinger Band - Lower Bollinger Band) / 2
+end
+
+# *Occurrence of resistance or support bands
+	# examine last couple peaks
+	# measure whether their prices are within a certain range of one another
+# *When a resistance or support band has been broken
