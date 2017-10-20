@@ -23,6 +23,12 @@ module Tradesies
 		end
 
 		def consume(candlestick)
+			# Candlestick initialization hash options:
+			# price, ema, cci, bands(hash)
+
+			# Switch initialization hash options:
+			# orientation, length, coverage
+			
 			@candlesticks << candlestick.select{|k,v| /high|low|close/.match(k) }
 			@current_price = candlestick["weightedAverage"]
 			@prices << @current_price
@@ -181,6 +187,12 @@ def slope_length(operator)
 		index -= 1
 	end
 	length
+end
+
+# *Orientation of switch
+def orientation
+	return :peak
+	return :nadir
 end
 
 def slope_coverage(length)
