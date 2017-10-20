@@ -103,7 +103,7 @@ def below_upper_band?
 end
 
 # *Whether significant peak or nadir in price has occured
-def peak?
+def switch?
 	if @prices[-1] > @prices[-2]
 		@prices[-3] > @prices[-2]
 		return (:>)
@@ -131,7 +131,7 @@ end
 
 # If price closes outside the bands, check for extreme_cci. 
 # If cci is extreme, consider trading. Otherwise wait until 
-# the next peak. If it closes within the band, consider trading. 
+# the next switch. If it closes within the band, consider trading. 
 # Otherwise, when the price approaches the middle band, check 
 # the CCI. If the CCI is activated, trade when it goes out of
 # activation. Otherwise trade when the price reverses after a 
@@ -172,7 +172,7 @@ end
 				# If not, make possible trade, deactivate band_watch.
 		# If not, do nothing. 
 
-# *Noteworthy characteristics of last peak
+# *Noteworthy characteristics of last switch
 def slope_length(operator)
 	index = -2
 	length = 0
@@ -187,13 +187,13 @@ def slope_coverage(length)
 	@prices[-2] - @prices[-2 - length]
 end
 
-def significant_peak?()
-	# What constitutes a significant peak?
+def significant_switch?()
+	# What constitutes a significant switch?
 	# Length >= 4
 	# Coverage >= (Upper Bollinger Band - Lower Bollinger Band) / 2
 end
 
 # *Occurrence of resistance or support bands
-	# examine last couple peaks
+	# examine last couple switchs
 	# measure whether their prices are within a certain range of one another
 # *When a resistance or support band has been broken
