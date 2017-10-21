@@ -11,7 +11,7 @@ module Tradesies
 		end
 
 		def test_strategy
-			@chart.each { |candlestick| @strategy.consume(candlestick) } 
+			@chart.each { |candlestick| @strategy.process(candlestick) } 
 			puts @strategy.wallet.balance
 		end
 	end

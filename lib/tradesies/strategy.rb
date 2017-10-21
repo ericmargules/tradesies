@@ -4,7 +4,7 @@ require_relative 'wallet'
 
 module Tradesies
 	class Strategy
-		attr_reader :prices, :trades, :candlesticks, :emas, :ccis, :bbs, :wallet
+		attr_reader :trades, :candlesticks, :wallet
 
 		def initialize
 			@output = Logger.new
@@ -12,40 +12,21 @@ module Tradesies
 			@wallet = Wallet.new(500.0)
 			@trades = []
 			@candlesticks = []
-			@prices = []
 			@current_price = ""
 			@max_trades = 1
-
-			# Here be indicators
-			@emas = []
-			@ccis = []
-			@bbs = []
 		end
 
-		def consume(candlestick)
-			# Candlestick initialization hash options:
-			# price, ema, cci, bands(hash)
-
-			# Switch initialization hash options:
-			# orientation, length, coverage
+		def process(candlestick)
+			@current_price = candlestick["close"]
+			options_hash = build_options_hash(candlestick, switch?)
+			@candlesticks << options_hash[:orientation] ? Switch.new(options_hash) : Candlestick.new(options_hash)
 			
-			@candlesticks << candlestick.select{|k,v| /high|low|close/.match(k) }
-			@current_price = candlestick["weightedAverage"]
-			@prices << @current_price
-
-			harvest_candlestick if @prices.length >= 20
 			# eval_positions if @prices.length >= 30
 
 			@output.log("Price: #{@current_price}")
 		end
 
 		private
-
-		def harvest_candlestick
-			@bbs << @indicator.bbands(@prices, 20)
-			@emas << @indicator.ema(@prices, 4)
-			@ccis << @indicator.cci(@candlesticks, 20)
-		end
 
 		def eval_positions
 			open_trades = @trades.select{|trade| trade.status == :open }
@@ -89,51 +70,91 @@ module Tradesies
 			emas[-1] < emas[-2] && emas[-2] < emas[-3]
 		end
 
+		# Options_Hash Methods
+		def build_options_hash(candlestick, switch)
+			# Hash Options
+			# Candlestick: price, ema*, cci*, bands(hash)*
+			# Switch: orientation, length, coverage
+			# *optional
+			options_hash = {}
+			options_hash[:price] = candlestick[:close]
+			if enough_candles?
+				options_hash[:sma] = @indicator.sma(prices, 20)
+				options_hash[:ema] = @indicator.(prices, 4) 
+				options_hash[:cci] = @indicator.(bands, 20)
+			end
+			if switch.any?
+				options_hash[:orientation] = switch[0]
+				options_hash[:length] = switch[1]
+				options_hash[:coverage] = slope_coverage(switch[1])
+			end
+			options_hash
+		end
+
+		def prices 
+			@candlesticks.map{ |candle| candle.price }
+		end
+
+		def bands
+			@candlesticks.map{ |candle| candle.bands }
+		end
+
+		def enough_candles?
+			@candlesticks.length > 20
+		end
+
+		# Switch Recognition Methods
+		def switch?
+			result = []
+			{:> => :peak, :< => :nadir}.each do |op, val|
+				result = val, slope_length(op) if ( staggered?(op) && long_enough?(op) )
+			end
+			result
+		end
+
+		def staggered?(operator)
+			@current_price.send(operator, @candlesticks.last.price) &&
+			@candlesticks[-2].price.send(operator, @candlesticks.last.price)
+		end
+			
+		def long_enough?(operator)
+			slope_length(operator) > 3
+		end	 
+
+		def steep_enough(length)
+			slope_coverage(length) # greater than 50% the span of the bands
+		end
+
+		def slope_length(operator)
+			index = -1
+			length = 0
+			while @candlesticks[index.pred].price.send(operator, @candlesticks[index].price)
+				length += 1
+				index -= 1
+			end
+			length
+		end
+
+		def slope_coverage(length)
+			@candlesticks[-1].price - @candlesticks[-1 - length].price
+		end
+		
 	end
 end
 
 # Need ways to measure:
+# *Whether price crossed bands --check 
+# *Whether significant peak or nadir in price has occured --check
+# *When CCI enters and exits activation and extreme levels --check
+# *Noteworthy characteristics of last switch
+# *Orientation of switch --check
 
-# *Whether price crossed bands
+# *Occurrence of resistance or support bands
+	# examine last couple switchs
+	# measure whether their prices are within a certain range of one another
+# *When a resistance or support band has been broken
 
-def inside_bands?
-	above_lower_band? && below_upper_band?
-end
-
-def above_lower_band?
-	@current_price > @bbs.last[:lower_band]
-end
-
-def below_upper_band?
-	@current_price < @bbs.last[:upper_band]
-end
-
-# *Whether significant peak or nadir in price has occured
-def switch?
-	if @prices[-1] > @prices[-2]
-		@prices[-3] > @prices[-2]
-		return (:>)
-	elsif @prices[-1] < @prices[-2]
-		@prices[-3] < @prices[-2]
-		return (:<)
-	else
-		false
-	end
-end
-
-# *When CCI enters and exits activation and extreme levels
-def activated_cci?
-	@ccis.last += 75 || @cci.last -= -75 
-end
-
-def extreme_cci?
-	@ccis.last += 150 || @cci.last -= -150
-end
-
-# Simple Strategy
-# If price closes outside the band, trade after two closes within the band. 
-
-# Advanced Strategy
+# Strategy
 
 # If price closes outside the bands, check for extreme_cci. 
 # If cci is extreme, consider trading. Otherwise wait until 
@@ -177,35 +198,3 @@ end
 				# If so, make possible trade.
 				# If not, make possible trade, deactivate band_watch.
 		# If not, do nothing. 
-
-# *Noteworthy characteristics of last switch
-def slope_length(operator)
-	index = -2
-	length = 0
-	while @prices[index.pred].send(operator, @prices[index])
-		length += 1
-		index -= 1
-	end
-	length
-end
-
-# *Orientation of switch
-def orientation
-	return :peak
-	return :nadir
-end
-
-def slope_coverage(length)
-	@prices[-2] - @prices[-2 - length]
-end
-
-def significant_switch?()
-	# What constitutes a significant switch?
-	# Length >= 4
-	# Coverage >= (Upper Bollinger Band - Lower Bollinger Band) / 2
-end
-
-# *Occurrence of resistance or support bands
-	# examine last couple switchs
-	# measure whether their prices are within a certain range of one another
-# *When a resistance or support band has been broken
