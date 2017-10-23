@@ -26,7 +26,7 @@ module Tradesies
 			( tp(data[-1]) - sma_data(data, period) ) / (a * mean_dev(data, period))
 		end
 
-		def bbands(data, period) #Bollinger Bands
+		def bands(data, period) #Bollinger Bands
 			bbands = {}
 			band_diff = std_dev(data, period) * 2
 			bbands[:middle_band] = sma(data, period)
@@ -51,11 +51,11 @@ module Tradesies
 
 		def tp(point) # Typical Price
 			# Typical Price = (High + Low + Close) / 3
-			( point["high"] + point["low"] + point["close"] ) / 3
+			( point.high + point.low + point.price ) / 3
 		end
 
 		def sma_data(data, period)
-			sma(data.map{|point| tp(point) }, period)
+			sma( data.map{|point| tp(point) }, period )
 		end
 		
 		def subset(data, period)

@@ -1,6 +1,7 @@
 require_relative 'logger'
-require_relative 'indicator.rb'
+require_relative 'indicator'
 require_relative 'wallet'
+require_relative 'candlestick'
 
 module Tradesies
 	class Strategy
@@ -14,13 +15,15 @@ module Tradesies
 			@candlesticks = []
 			@current_price = ""
 			@max_trades = 1
+			@flag = :false
 		end
 
 		def process(candlestick)
 			@current_price = candlestick["close"]
-			options_hash = build_options_hash(candlestick, switch?)
-			@candlesticks << options_hash[:orientation] ? Switch.new(options_hash) : Candlestick.new(options_hash)
-			
+			switch = enough_for_switch? ? switch? : []
+			options_hash = build_options_hash(candlestick, switch)
+			candle = options_hash[:orientation] ? Switch.new(options_hash) : Candlestick.new(options_hash)
+			@candlesticks << candle
 			# eval_positions if @prices.length >= 30
 
 			@output.log("Price: #{@current_price}")
@@ -29,21 +32,45 @@ module Tradesies
 		private
 
 		def eval_positions
-			open_trades = @trades.select{|trade| trade.status == :open }
-			if open_trades.any? 
-				if sell?
-					@output.log(open_trades[-1].sell(@current_price)) 
-					@wallet.balance = (open_trades[-1].close_price * open_trades[-1].units)
-					@output.log(@wallet.balance.to_s)
-				end
+			# Check for buy/sell flag		
+			if @flag 
+				return send(@flag) if @candlesticks.last.outside_bands == false
 			end
-			if open_trades.length < @max_trades
-				if buy?
-					@trades << Trade.new(@current_price, @wallet.balance) 
-					@wallet.balance = 0
-					@output.log(@trades[-1].show_trade)
-				end
-			end
+
+			# Sell on stop_loss
+			return sell if open_trades.any && @candlesticks.last.stop_loss?
+			
+
+			# Set flag based on CCI
+			set_flag
+
+			# no flag set? test if near/past the middle band and the opposite orientation as the last band break
+
+			# if switch
+			# test if inside bands
+				# Trade if band_flag is active and switch orientation is opposite to band_flag's orientation and switch is close to middle band.
+				# Trade if band_flag is active and switch orientation is equal to band_flag's orientation.
+
+			
+
+
+			# At this point, need to rely on candlestick to relay information about status of chart
+			# for strategy to parse and decide upon.
+
+			# if open_trades.any? 
+			# 	if sell?
+			# 		@output.log(open_trades[-1].sell(@current_price)) 
+			# 		@wallet.balance = (open_trades[-1].close_price * open_trades[-1].units)
+			# 		@output.log(@wallet.balance.to_s)
+			# 	end
+			# end
+			# if open_trades.length < @max_trades
+			# 	if buy?
+			# 		@trades << Trade.new(@current_price, @wallet.balance) 
+			# 		@wallet.balance = 0
+			# 		@output.log(@trades[-1].show_trade)
+			# 	end
+			# end
 		end
 
 		def buy?
@@ -77,11 +104,14 @@ module Tradesies
 			# Switch: orientation, length, coverage
 			# *optional
 			options_hash = {}
-			options_hash[:price] = candlestick[:close]
+			options_hash[:price] = candlestick["close"]
+			options_hash[:high] = candlestick["high"]
+			options_hash[:low] = candlestick["low"]
 			if enough_candles?
 				options_hash[:sma] = @indicator.sma(prices, 20)
-				options_hash[:ema] = @indicator.(prices, 4) 
-				options_hash[:cci] = @indicator.(bands, 20)
+				options_hash[:ema] = @indicator.ema(prices, 4) 
+				options_hash[:cci] = @indicator.cci(@candlesticks, 20)
+				options_hash[:bands] = @indicator.bands(prices, 20)
 			end
 			if switch.any?
 				options_hash[:orientation] = switch[0]
@@ -100,21 +130,27 @@ module Tradesies
 		end
 
 		def enough_candles?
-			@candlesticks.length > 20
+			@candlesticks.length > 19
+		end
+
+		def enough_for_switch?
+			@candlesticks.length > 21
 		end
 
 		# Switch Recognition Methods
 		def switch?
 			result = []
 			{:> => :peak, :< => :nadir}.each do |op, val|
-				result = val, slope_length(op) if ( staggered?(op) && long_enough?(op) )
+				result = val, slope_length(op) if ( staggered?(op) && ( long_enough?(op) || steep_enough(slope_length(op)) ) )
 			end
 			result
 		end
 
 		def staggered?(operator)
-			@current_price.send(operator, @candlesticks.last.price) &&
-			@candlesticks[-2].price.send(operator, @candlesticks.last.price)
+			if @candlesticks.length >= 2
+				@current_price.send(operator, @candlesticks.last.price) &&
+				@candlesticks[-2].price.send(operator, @candlesticks.last.price)
+			end
 		end
 			
 		def long_enough?(operator)
@@ -122,7 +158,7 @@ module Tradesies
 		end	 
 
 		def steep_enough(length)
-			slope_coverage(length) # greater than 50% the span of the bands
+			slope_coverage(length) > ( @candlesticks.last.bands[:upper_band] - @candlesticks.last.bands[:lower_band] ) * 0.35
 		end
 
 		def slope_length(operator)
@@ -138,32 +174,39 @@ module Tradesies
 		def slope_coverage(length)
 			@candlesticks[-1].price - @candlesticks[-1 - length].price
 		end
-		
+
+		# Flag-Setting Methods
+	    def set_flag
+	    	if @candlesticks.last.outside_bands?
+		    	@candlesticks.last.outside_bands == :upper ? set_sell_flag : set_buy_flag
+		    end
+	    	if @candlesticks.last.extreme_cci? 
+	    		@candlesticks.last.extreme_cci? == :high ? set_sell_flag : set_buy_flag
+	    	end
+	    end
+	    
+	    def set_buy_flag
+	    	@flag = :buy if open_trades.count < @max_trades
+	    end
+	    
+	    def set_sell_flag
+	    	@flag = :sell if open_trades.any?
+	    end
+
+	   	def open_trades
+	   		@trades.select{|trade| trade.status == :open }
+	   	end
+
 	end
 end
 
 # Need ways to measure:
-# *Whether price crossed bands --check 
-# *Whether significant peak or nadir in price has occured --check
-# *When CCI enters and exits activation and extreme levels --check
-# *Noteworthy characteristics of last switch
-# *Orientation of switch --check
-
 # *Occurrence of resistance or support bands
 	# examine last couple switchs
 	# measure whether their prices are within a certain range of one another
 # *When a resistance or support band has been broken
 
 # Strategy
-
-# If price closes outside the bands, check for extreme_cci. 
-# If cci is extreme, consider trading. Otherwise wait until 
-# the next switch. If it closes within the band, consider trading. 
-# Otherwise, when the price approaches the middle band, check 
-# the CCI. If the CCI is activated, trade when it goes out of
-# activation. Otherwise trade when the price reverses after a 
-# trend, buy and hold until next time price crosses and reenters
-# a band.
 
 # Test whether price closes outside band.
 # If so, identify if the price is higher or lower than the bands.
