@@ -52,11 +52,6 @@ module Tradesies
 				# Trade if band_flag is active and switch orientation is equal to band_flag's orientation.
 
 			
-
-
-			# At this point, need to rely on candlestick to relay information about status of chart
-			# for strategy to parse and decide upon.
-
 			# if open_trades.any? 
 			# 	if sell?
 			# 		@output.log(open_trades[-1].sell(@current_price)) 
@@ -142,9 +137,11 @@ module Tradesies
 			result = []
 			{:> => :nadir, :< => :peak}.each do |op, val|
 				if ( staggered?(op) && ( slope_grade(op, 2, 0.3) || slope_grade(op, 1, 0.45) ) )
-				# if ( staggered?(op) && ( long_enough?(op) || steep_enough?(slope_length(op)) ) )
 					result = val, slope_length(op)
 				end
+			end
+			if result.empty?
+				result = upper_rebound if upper_rebound
 			end
 			result
 		end
@@ -178,6 +175,25 @@ module Tradesies
 
 		def slope_coverage(length)
 			( @candlesticks[-1].price - @candlesticks[-1 - length].price ).abs
+		end
+
+		# Upper Rebound Methods
+		def upper_rebound
+			if last_band_break == :upper
+				return [:nadir, slope_length(:>)] if downward_dip
+			end
+		end
+
+	   	def last_band_break
+	   		@candlesticks.select {|candle| candle.outside_bands }.last.outside_bands
+	   	end
+
+		def downward_dip
+			staggered?(:>) && long_enough?(:>, 1) && lower_price_than_sma?
+		end
+
+		def lower_price_than_sma?
+			@candlesticks.last.price <= @candlesticks.last.bands[:middle_band]
 		end
 
 		# Flag-Setting Methods

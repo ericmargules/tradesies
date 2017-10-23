@@ -12,7 +12,7 @@ module Tradesies
     end
     
     def outside_bands
-      below_lower_band || above_upper_band 
+      ( below_lower_band || above_upper_band ) if @bands != 0
     end
     
     def activated_cci?
