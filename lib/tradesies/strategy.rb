@@ -140,25 +140,30 @@ module Tradesies
 		# Switch Recognition Methods
 		def switch?
 			result = []
-			{:> => :peak, :< => :nadir}.each do |op, val|
-				result = val, slope_length(op) if ( staggered?(op) && ( long_enough?(op) || steep_enough(slope_length(op)) ) )
+			{:> => :nadir, :< => :peak}.each do |op, val|
+				if ( staggered?(op) && ( slope_grade(op, 2, 0.3) || slope_grade(op, 1, 0.45) ) )
+				# if ( staggered?(op) && ( long_enough?(op) || steep_enough?(slope_length(op)) ) )
+					result = val, slope_length(op)
+				end
 			end
 			result
 		end
 
 		def staggered?(operator)
-			if @candlesticks.length >= 2
-				@current_price.send(operator, @candlesticks.last.price) &&
-				@candlesticks[-2].price.send(operator, @candlesticks.last.price)
-			end
+			@current_price.send(operator, @candlesticks.last.price) &&
+			@candlesticks[-2].price.send(operator, @candlesticks.last.price)
 		end
-			
-		def long_enough?(operator)
-			slope_length(operator) > 3
+		
+		def slope_grade(op, length, cover)
+			long_enough?(op, length) && steep_enough?(slope_length(op), cover)
+		end
+
+		def long_enough?(operator, const)
+			slope_length(operator) > const
 		end	 
 
-		def steep_enough(length)
-			slope_coverage(length) > ( @candlesticks.last.bands[:upper_band] - @candlesticks.last.bands[:lower_band] ) * 0.35
+		def steep_enough?(length, const)
+			slope_coverage(length) > ( @candlesticks.last.bands[:upper_band] - @candlesticks.last.bands[:lower_band] ) * const
 		end
 
 		def slope_length(operator)
@@ -172,7 +177,7 @@ module Tradesies
 		end
 
 		def slope_coverage(length)
-			@candlesticks[-1].price - @candlesticks[-1 - length].price
+			( @candlesticks[-1].price - @candlesticks[-1 - length].price ).abs
 		end
 
 		# Flag-Setting Methods
