@@ -14,13 +14,21 @@ module Tradesies
     def outside_bands
       ( below_lower_band || above_upper_band ) if @bands != 0
     end
-    
-    def activated_cci?
-       low_cci(-75) || high_cci(75)
+
+    def depressed_cci?(cci = -75)
+      @cci <= cci
     end
 
-    def extreme_cci?
-       low_cci(-150) || high_cci(150)
+    def elevated_cci?(cci = 75)
+      @cci >= cci
+    end
+
+    def extremely_high_cci?(cci = 150)
+      @cci >= cci
+    end
+
+    def extremely_low_cci?(cci = -150)
+      @cci <= cci
     end
 
     def stop_loss?
@@ -36,18 +44,10 @@ module Tradesies
     def above_upper_band
       :upper if @price > @bands[:upper_band]
     end
-
-    def low_cci(cci)
-      :low if @cci <= cci
-    end
-
-    def high_cci
-      :high if @cci >= cci
-    end
   
   end
   
-  class Switch < Candlestick
+  class Reversal < Candlestick
     attr_reader :orientation, :length, :coverage
     
     def initialize(options)

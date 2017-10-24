@@ -15,14 +15,13 @@ module Tradesies
 			@candlesticks = []
 			@current_price = ""
 			@max_trades = 1
-			@flag = :false
 		end
 
 		def process(candlestick)
 			@current_price = candlestick["close"]
-			switch = enough_for_switch? ? switch? : []
-			options_hash = build_options_hash(candlestick, switch)
-			candle = options_hash[:orientation] ? Switch.new(options_hash) : Candlestick.new(options_hash)
+			reversal = enough_for_reversal? ? reversal? : []
+			options_hash = build_options_hash(candlestick, reversal)
+			candle = options_hash[:orientation] ? Reversal.new(options_hash) : Candlestick.new(options_hash)
 			@candlesticks << candle
 			# eval_positions if @prices.length >= 30
 
@@ -31,10 +30,20 @@ module Tradesies
 
 		private
 
-		def eval_positions
-			# Filter by Switch or Candlestick
-			@candlesticks.last.class == Tradesies::Switch ? eval_switch : eval_candle
+		def buy?
+			# simple strategy
+			make_trade(:buy) if ( outside_bands_to_inside?(:lower) || extreme_reversal_outside_bands(:lower) )
+			# advanced strategy || rebound(:lower)
+		end
+
+		def sell?
+			#simple strategy
+			make_trade(:sell) if ( stop_loss? || outside_bands_to_inside?(:upper) || extreme_reversal_outside_bands(:upper) )
+			# advanced strategy || rebound(:upper)
 			
+		end
+
+		def eval_positions			
 			# if open_trades.any? 
 			# 	if sell?
 			# 		@output.log(open_trades[-1].sell(@current_price)) 
@@ -51,21 +60,46 @@ module Tradesies
 			# end
 		end
 
-		# Switch Evaluation Methods
-		def eval_switch
-			possible_trade?(:buy) ? buy(:switch) : sell(:switch)
+		# Trade Conditions Methods
+		def rebound(band)
+			opposites = {:upper => {:orientation => :nadir, 
+									:operator => :<=, 
+									:cci => :depressed_cci?}, 
+						:lower => {:orientation => :peak, 
+									:operator => :>=, 
+									:cci => :elevated_cci?}}
+			# Last close is reversal
+			last_is_reversal? &&
+			# Last orientation is opposite of band
+			@candlesticks.last.orientation == opposites[band][:orientation] &&
+			# Price is at or beyond middle band
+			price_near_sma?(opposites[band][:operator]) &&
+			# CCI is elevated or extreme
+			@candlesticks.last.send(opposites[band][:cci])	
 		end
 
-		def eval_candle
-			if band_break? 
-				set_flag 
-			else 
-				send(check_flag, :candle) if check_flag
-			end
+		def extreme_reversal_outside_bands(band)
+			pairs = {:upper => :elevated_cci?, :lower => :depressed_cci?}
+			last_is_reversal? && 
+			@candlesticks.last.send(pairs[band]) && 
+			band_break?[-1] == band
 		end
 
-		def band_break?
-			@candlesticks.last.outside_bands
+		def outside_bands_to_inside(band)
+			inside_bands?[-1] && band_break[-2] == band
+		end
+
+		# Reversal Evaluation Methods
+		def band_break?(ind)
+			@candlesticks[ind].outside_bands
+		end
+
+		def inside_bands?(ind)
+			@candlesticks[ind].outside_bands == false
+		end
+
+		def last_is_reversal?
+			@candlesticks.last.class == Tradesies::Reversal
 		end
 
 		# Trade Methods
@@ -74,29 +108,33 @@ module Tradesies
 	   	end
 
 		def possible_trade?(action)
-			action == :buy ? available_buy? : available_sell?
+			action == :buy ? available_buy? : available_sale?
 		end
-
+		
+		def possible_trades
+		  # return :buy if buy is possible
+		  # return :sell if sell is possible
+			result = []
+			result << :buy if available_buy?
+			result << :sell if available_sell?
+		end
+		
 		def available_buy?
 			open_trades.count < @max_trades
 		end
 
-		def available_sell?
+		def available_sale?
 			open_trades.any?
 		end
 
 		def buy(type)
-			@flag == :buy && !band_break?
-			@candlesticks.last.class == Tradesies::Switch &&
-			band_break? == :lower
 		end
 
 		def sell(type)
-			possible_trade?(:sell)
 		end
 
 		# Options_Hash Methods
-		def build_options_hash(candlestick, switch)
+		def build_options_hash(candlestick, reversal)
 			# Hash Options
 			# Candlestick: price, ema*, cci*, bands(hash)*
 			# Switch: orientation, length, coverage
@@ -111,10 +149,10 @@ module Tradesies
 				options_hash[:cci] = @indicator.cci(@candlesticks, 20)
 				options_hash[:bands] = @indicator.bands(prices, 20)
 			end
-			if switch.any?
-				options_hash[:orientation] = switch[0]
-				options_hash[:length] = switch[1]
-				options_hash[:coverage] = slope_coverage(switch[1])
+			if reversal.any?
+				options_hash[:orientation] = reversal[0]
+				options_hash[:length] = reversal[1]
+				options_hash[:coverage] = slope_coverage(reversal[1])
 			end
 			options_hash
 		end
@@ -131,24 +169,23 @@ module Tradesies
 			@candlesticks.length > 19
 		end
 
-		def enough_for_switch?
+		def enough_for_reversal?
 			@candlesticks.length > 21
 		end
 
-		# Switch Recognition Methods
-		def switch?
+		# Reversal Recognition Methods
+		def reversal?
 			result = []
 			{:> => :nadir, :< => :peak}.each do |op, val|
-				result = val, slope_length(op) if regular_up_or_down_switch?(op)
+				result = val, slope_length(op) if standard_reversal?(op)
 			end
-			if result.empty? && last_band_break == :upper
-				result = upper_rebound
-			end
+			result = special_rebound_reversal if result.empty?
 			result
 		end
 
-		def regular_up_or_down_switch?(operator)
-			staggered?(operator) && ( slope_grade(operator, 2, 0.3) || slope_grade(operator, 1, 0.45) )
+		def standard_reversal?(operator)
+			staggered?(operator) && 
+			( slope_grade(operator, 2, 0.3) || slope_grade(operator, 1, 0.45) )
 		end
 
 		def staggered?(operator)
@@ -183,43 +220,24 @@ module Tradesies
 		end
 
 		# Upper Rebound Methods
-		def upper_rebound
-			downward_dip? ? [:nadir, slope_length(:>)] : [] 
+		def special_rebound_reversal
+			upper_rebound? ? [:nadir, slope_length(:>)] : [] 
+		end
+
+		def upper_rebound?
+			last_band_break == :upper && 
+			staggered?(:>) && 
+			long_enough?(:>, 1) && 
+			price_near_sma?(:<=) 
 		end
 
 	   	def last_band_break
 	   		@candlesticks.select {|candle| candle.outside_bands }.last.outside_bands
 	   	end
 
-		def downward_dip?
-			staggered?(:>) && long_enough?(:>, 1) && lower_price_than_sma?
+		def price_near_sma?(operator)
+			@candlesticks.last.price.send(operator, @candlesticks.last.bands[:middle_band])
 		end
-
-		def lower_price_than_sma?
-			@candlesticks.last.price <= @candlesticks.last.bands[:middle_band]
-		end
-
-		# Flag-Setting Methods
-	    def set_flag
-	    	if band_break?
-		    	band_break? == :upper ? set_sell_flag : set_buy_flag
-		    end
-	    	if @candlesticks.last.extreme_cci? 
-	    		@candlesticks.last.extreme_cci? == :high ? set_sell_flag : set_buy_flag
-	    	end
-	    end
-	    
-	    def set_buy_flag
-	    	@flag = :buy if possible_trade?(:buy)
-	    end
-	    
-	    def set_sell_flag
-	    	@flag = :sell if possible_trade?(:sell)
-	    end
-
-	   	def check_flag
-			@flag if @flag && possible_trade?(@flag)
-	   	end
 
 	end
 end
@@ -229,39 +247,3 @@ end
 	# examine last couple switchs
 	# measure whether their prices are within a certain range of one another
 # *When a resistance or support band has been broken
-
-# Strategy
-
-# Test whether price closes outside band.
-# If so, identify if the price is higher or lower than the bands.
-# Check for extreme CCI.
-# If CCI is extreme, trade if possible next close within upper band
-# If CCI is not extreme, activate switch-watch and band-watch
-# On next switch, test whether price closes outside bands.
-# If not, make possible trade.
-# If so, test whether price falls outside opposite band.
-# If so, make possible sale.
-
-# switch_watch (whenever trade occurs, deactivate switch_watch)
-	# Test whether close is switch.
-		# If so, test whether switch closes inside bands.
-			# If so, test whether band_watch is activated.
-				# If so, test whether switch occurs with activated CCI.
-					# If so, make possible trade next close with deactivated CCI, deactivate switch_watch.
-					# If not, check whether switch happens on other side of middle band.
-						# If so, make possible trade, deactivate switch_watch.
-						# If not, do nothing.
-				# If not, make possible trade, deactivate switch_watch.
-			# If not, make possible trade, deactivate switch_watch, activate band_watch.
-		# If not, do nothing.
-
-# band_watch (on band_watch activation, activate switch_watch)
-	# Test whether close is a switch.
-		# If so, test whether switch occurs inside bands.
-			# If so, test whether switch has same orientation as band_watch.
-				# If so, make possible trade, deactivate band_watch.
-				# If not, do nothing.
-			# If not, test whether switch occurs on same side as previous band break.
-				# If so, make possible trade.
-				# If not, make possible trade, deactivate band_watch.
-		# If not, do nothing. 
