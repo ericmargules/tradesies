@@ -32,25 +32,8 @@ module Tradesies
 		private
 
 		def eval_positions
-			# Check for buy/sell flag		
-			if @flag 
-				return send(@flag) if @candlesticks.last.outside_bands == false
-			end
-
-			# Sell on stop_loss
-			return sell if open_trades.any && @candlesticks.last.stop_loss?
-			
-
-			# Set flag based on CCI
-			set_flag
-
-			# no flag set? test if near/past the middle band and the opposite orientation as the last band break
-
-			# if switch
-			# test if inside bands
-				# Trade if band_flag is active and switch orientation is opposite to band_flag's orientation and switch is close to middle band.
-				# Trade if band_flag is active and switch orientation is equal to band_flag's orientation.
-
+			# Filter by Switch or Candlestick
+			@candlesticks.last.class == Tradesies::Switch ? eval_switch : eval_candle
 			
 			# if open_trades.any? 
 			# 	if sell?
@@ -68,10 +51,48 @@ module Tradesies
 			# end
 		end
 
-		def buy?
+		# Switch Evaluation Methods
+		def eval_switch
+			possible_trade?(:buy) ? buy(:switch) : sell(:switch)
 		end
 
-		def sell?
+		def eval_candle
+			if band_break? 
+				set_flag 
+			else 
+				send(check_flag, :candle) if check_flag
+			end
+		end
+
+		def band_break?
+			@candlesticks.last.outside_bands
+		end
+
+		# Trade Methods
+	   	def open_trades
+	   		@trades.select{ |trade| trade.status == :open }
+	   	end
+
+		def possible_trade?(action)
+			action == :buy ? available_buy? : available_sell?
+		end
+
+		def available_buy?
+			open_trades.count < @max_trades
+		end
+
+		def available_sell?
+			open_trades.any?
+		end
+
+		def buy(type)
+			@flag == :buy && !band_break?
+			@candlesticks.last.class == Tradesies::Switch &&
+			band_break? == :lower
+		end
+
+		def sell(type)
+			possible_trade?(:sell)
 		end
 
 		# Options_Hash Methods
@@ -135,8 +156,8 @@ module Tradesies
 			@candlesticks[-2].price.send(operator, @candlesticks.last.price)
 		end
 		
-		def slope_grade(op, length, cover)
-			long_enough?(op, length) && steep_enough?(slope_length(op), cover)
+		def slope_grade(operator, length, cover)
+			long_enough?(operator, length) && steep_enough?(slope_length(operator), cover)
 		end
 
 		def long_enough?(operator, const)
@@ -163,14 +184,14 @@ module Tradesies
 
 		# Upper Rebound Methods
 		def upper_rebound
-			downward_dip ? [:nadir, slope_length(:>)] : [] 
+			downward_dip? ? [:nadir, slope_length(:>)] : [] 
 		end
 
 	   	def last_band_break
 	   		@candlesticks.select {|candle| candle.outside_bands }.last.outside_bands
 	   	end
 
-		def downward_dip
+		def downward_dip?
 			staggered?(:>) && long_enough?(:>, 1) && lower_price_than_sma?
 		end
 
@@ -180,8 +201,8 @@ module Tradesies
 
 		# Flag-Setting Methods
 	    def set_flag
-	    	if @candlesticks.last.outside_bands?
-		    	@candlesticks.last.outside_bands == :upper ? set_sell_flag : set_buy_flag
+	    	if band_break?
+		    	band_break? == :upper ? set_sell_flag : set_buy_flag
 		    end
 	    	if @candlesticks.last.extreme_cci? 
 	    		@candlesticks.last.extreme_cci? == :high ? set_sell_flag : set_buy_flag
@@ -189,15 +210,15 @@ module Tradesies
 	    end
 	    
 	    def set_buy_flag
-	    	@flag = :buy if open_trades.count < @max_trades
+	    	@flag = :buy if possible_trade?(:buy)
 	    end
 	    
 	    def set_sell_flag
-	    	@flag = :sell if open_trades.any?
+	    	@flag = :sell if possible_trade?(:sell)
 	    end
 
-	   	def open_trades
-	   		@trades.select{|trade| trade.status == :open }
+	   	def check_flag
+			@flag if @flag && possible_trade?(@flag)
 	   	end
 
 	end
