@@ -69,27 +69,9 @@ module Tradesies
 		end
 
 		def buy?
-			higher_sma? || (downward_ema? && @ccis[-1] > -100)
 		end
 
 		def sell?
-			lower_sma? || (upward_ema? && @ccis[-1] < 100)
-		end
-
-		def lower_sma?
-			@smas[-1] < @emas[-1]
-		end
-
-		def higher_sma?
-			@smas[-1] > @emas[-1]
-		end
-
-		def upward_ema?
-			emas[-3] < emas[-2] && emas[-2] < emas[-1]
-		end
-
-		def downward_ema?
-			emas[-1] < emas[-2] && emas[-2] < emas[-3]
 		end
 
 		# Options_Hash Methods
@@ -136,14 +118,16 @@ module Tradesies
 		def switch?
 			result = []
 			{:> => :nadir, :< => :peak}.each do |op, val|
-				if ( staggered?(op) && ( slope_grade(op, 2, 0.3) || slope_grade(op, 1, 0.45) ) )
-					result = val, slope_length(op)
-				end
+				result = val, slope_length(op) if regular_up_or_down_switch?(op)
 			end
-			if result.empty?
-				result = upper_rebound if upper_rebound
+			if result.empty? && last_band_break == :upper
+				result = upper_rebound
 			end
 			result
+		end
+
+		def regular_up_or_down_switch?(operator)
+			staggered?(operator) && ( slope_grade(operator, 2, 0.3) || slope_grade(operator, 1, 0.45) )
 		end
 
 		def staggered?(operator)
@@ -179,9 +163,7 @@ module Tradesies
 
 		# Upper Rebound Methods
 		def upper_rebound
-			if last_band_break == :upper
-				return [:nadir, slope_length(:>)] if downward_dip
-			end
+			downward_dip ? [:nadir, slope_length(:>)] : [] 
 		end
 
 	   	def last_band_break
