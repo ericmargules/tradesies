@@ -19,48 +19,55 @@ module Tradesies
 
 		def process(candlestick)
 			@current_price = candlestick["close"]
+			# Only check for reversals after enough data points are gathered
 			reversal = enough_for_reversal? ? reversal? : []
 			options_hash = build_options_hash(candlestick, reversal)
 			candle = options_hash[:orientation] ? Reversal.new(options_hash) : Candlestick.new(options_hash)
 			@candlesticks << candle
-			# eval_positions if @prices.length >= 30
+			
+			eval_positions if @candlesticks.length >= 21
 
 			@output.log("Price: #{@current_price}")
 		end
 
 		private
 
-		def buy?
+		def eval_positions			
+			possible_trades.each{ |trade| send(trade, trade_conditions[trade]) }
+		end
+
+		# Trade Methods
+		def make_trade(action)
+			if action == :sell
+				@output.log(open_trades[-1].sell(@current_price)) 
+				@wallet.balance = (@trades[-1].close_price * @trades[-1].units)
+				@output.log(@wallet.balance.to_s)
+			end
+			if action == :buy
+				@trades << Trade.new(@current_price, @wallet.balance) 
+				@wallet.balance = 0
+				@output.log(@trades[-1].show_trade)
+			end
+		end
+
+		def buy(args)
 			# simple strategy
-			make_trade(:buy) if ( outside_bands_to_inside?(:lower) || extreme_reversal_outside_bands(:lower) )
+			make_trade(:buy) if args.any?
 			# advanced strategy || rebound(:lower)
 		end
 
-		def sell?
+		def sell(args)
 			#simple strategy
-			make_trade(:sell) if ( stop_loss? || outside_bands_to_inside?(:upper) || extreme_reversal_outside_bands(:upper) )
+			make_trade(:sell) if args.any?
 			# advanced strategy || rebound(:upper)
-			
-		end
-
-		def eval_positions			
-			# if open_trades.any? 
-			# 	if sell?
-			# 		@output.log(open_trades[-1].sell(@current_price)) 
-			# 		@wallet.balance = (open_trades[-1].close_price * open_trades[-1].units)
-			# 		@output.log(@wallet.balance.to_s)
-			# 	end
-			# end
-			# if open_trades.length < @max_trades
-			# 	if buy?
-			# 		@trades << Trade.new(@current_price, @wallet.balance) 
-			# 		@wallet.balance = 0
-			# 		@output.log(@trades[-1].show_trade)
-			# 	end
-			# end
 		end
 
 		# Trade Conditions Methods
+		def trade_conditions
+			{:buy => [outside_bands_to_inside?(:lower), extreme_reversal_outside_bands(:lower)],
+			:sell =>[stop_loss?, outside_bands_to_inside?(:upper), extreme_reversal_outside_bands(:upper)]}			
+		end
+		
 		def rebound(band)
 			opposites = {:upper => {:orientation => :nadir, 
 									:operator => :<=, 
@@ -78,15 +85,18 @@ module Tradesies
 			@candlesticks.last.send(opposites[band][:cci])	
 		end
 
+		def stop_loss?
+		end
+
 		def extreme_reversal_outside_bands(band)
 			pairs = {:upper => :elevated_cci?, :lower => :depressed_cci?}
 			last_is_reversal? && 
 			@candlesticks.last.send(pairs[band]) && 
-			band_break?[-1] == band
+			band_break?(-1) == band
 		end
 
-		def outside_bands_to_inside(band)
-			inside_bands?[-1] && band_break[-2] == band
+		def outside_bands_to_inside?(band)
+			inside_bands?(-1) && band_break?(-2) == band
 		end
 
 		# Reversal Evaluation Methods
@@ -106,17 +116,12 @@ module Tradesies
 	   	def open_trades
 	   		@trades.select{ |trade| trade.status == :open }
 	   	end
-
-		def possible_trade?(action)
-			action == :buy ? available_buy? : available_sale?
-		end
 		
 		def possible_trades
-		  # return :buy if buy is possible
-		  # return :sell if sell is possible
 			result = []
 			result << :buy if available_buy?
-			result << :sell if available_sell?
+			result << :sell if available_sale?
+			result
 		end
 		
 		def available_buy?
@@ -125,12 +130,6 @@ module Tradesies
 
 		def available_sale?
 			open_trades.any?
-		end
-
-		def buy(type)
-		end
-
-		def sell(type)
 		end
 
 		# Options_Hash Methods
