@@ -33,7 +33,7 @@ module Tradesies
 		private
 
 		def eval_positions			
-			possible_trades.each{ |trade| send(trade, trade_conditions[trade]) }
+			possible_trades.each{ |trade| send( trade, trade_conditions(trade) ) }
 		end
 
 		# Trade Methods
@@ -63,9 +63,9 @@ module Tradesies
 		end
 
 		# Trade Conditions Methods
-		def trade_conditions
-			{:buy => [outside_bands_to_inside?(:lower), extreme_reversal_outside_bands(:lower)],
-			:sell =>[stop_loss?, outside_bands_to_inside?(:upper), extreme_reversal_outside_bands(:upper)]}			
+		def trade_conditions(trade)
+			trade == :buy ? [outside_bands_to_inside?(:lower), extreme_reversal_outside_bands(:lower)]
+			: [stop_loss?, outside_bands_to_inside?(:upper), extreme_reversal_outside_bands(:upper)]			
 		end
 		
 		def rebound(band)
@@ -86,6 +86,10 @@ module Tradesies
 		end
 
 		def stop_loss?
+			if @current_price <= ( @trades.last.open_price * 0.95 )
+				puts "STOP LOSS"
+				return true
+			end
 		end
 
 		def extreme_reversal_outside_bands(band)
@@ -105,7 +109,7 @@ module Tradesies
 		end
 
 		def inside_bands?(ind)
-			@candlesticks[ind].outside_bands == false
+			@candlesticks[ind].outside_bands == nil
 		end
 
 		def last_is_reversal?
@@ -162,6 +166,10 @@ module Tradesies
 
 		def bands
 			@candlesticks.map{ |candle| candle.bands }
+		end
+
+		def band_breaks
+			@candlesticks.select { |candle| candle.outside_bands }
 		end
 
 		def enough_candles?
@@ -224,6 +232,7 @@ module Tradesies
 		end
 
 		def upper_rebound?
+			band_breaks.any? &&
 			last_band_break == :upper && 
 			staggered?(:>) && 
 			long_enough?(:>, 1) && 
@@ -231,7 +240,7 @@ module Tradesies
 		end
 
 	   	def last_band_break
-	   		@candlesticks.select {|candle| candle.outside_bands }.last.outside_bands
+	   		band_breaks.last.outside_bands
 	   	end
 
 		def price_near_sma?(operator)

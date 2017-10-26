@@ -6,7 +6,7 @@ module Tradesies
 		attr_reader :chart, :strategy
 		
 		def initialize(argv = [])
-			@chart = Chart.new("USDT_BTC", 300, 1507957200, 1508130000).data
+			@chart = Chart.new("USDT_BTC", 300).data
 			@strategy = Strategy.new
 		end
 

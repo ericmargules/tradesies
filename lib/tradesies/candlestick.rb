@@ -30,10 +30,6 @@ module Tradesies
     def extremely_low_cci?(cci = -150)
       @cci <= cci
     end
-
-    def stop_loss?
-      @bands[:middle_band] >= ema
-    end
     
     private
 
