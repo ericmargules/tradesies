@@ -39,6 +39,7 @@ module Tradesies
 		# Trade Methods
 		def make_trade(action)
 			if action == :sell
+				@trades[-1].stop_loss = stop_loss?
 				@output.log(open_trades[-1].sell(@current_price)) 
 				@wallet.balance = (@trades[-1].close_price * @trades[-1].units)
 				@output.log(@wallet.balance.to_s)
@@ -64,8 +65,8 @@ module Tradesies
 
 		# Trade Conditions Methods
 		def trade_conditions(trade)
-			trade == :buy ? [outside_bands_to_inside?(:lower), extreme_reversal_outside_bands(:lower)]
-			: [stop_loss?, outside_bands_to_inside?(:upper), extreme_reversal_outside_bands(:upper)]			
+			trade == :buy ? [outside_bands_to_inside?(:lower), extreme_reversal_outside_bands(:lower), rebound(:upper)]
+			: [stop_loss?, outside_bands_to_inside?(:upper), extreme_reversal_outside_bands(:upper), rebound(:lower)]			
 		end
 		
 		def rebound(band)
@@ -75,32 +76,57 @@ module Tradesies
 						:lower => {:orientation => :peak, 
 									:operator => :>=, 
 									:cci => :elevated_cci?}}
+			if (
+			# Previous band breaks
+			band_breaks.any? &&			
 			# Last close is reversal
 			last_is_reversal? &&
 			# Last orientation is opposite of band
 			@candlesticks.last.orientation == opposites[band][:orientation] &&
 			# Price is at or beyond middle band
 			price_near_sma?(opposites[band][:operator]) &&
+			# Price is inside bands
+			inside_bands?(-1) ) #&&
 			# CCI is elevated or extreme
-			@candlesticks.last.send(opposites[band][:cci])	
+			# @candlesticks.last.send(opposites[band][:cci])
+				puts "Rebound"
+				return true
+			end
 		end
 
 		def stop_loss?
-			if @current_price <= ( @trades.last.open_price * 0.95 )
+			if @current_price <= ( @trades.last.open_price * 0.98 )
 				puts "STOP LOSS"
 				return true
 			end
 		end
 
+		def stop_loss_cool_down
+			if @trades.last.stop_loss # buy returns nil unless current band coverage is less than stop loss band coverage
+		end
+
 		def extreme_reversal_outside_bands(band)
-			pairs = {:upper => :elevated_cci?, :lower => :depressed_cci?}
-			last_is_reversal? && 
-			@candlesticks.last.send(pairs[band]) && 
-			band_break?(-1) == band
+			if (last_is_reversal? && 
+			@candlesticks.last.send(pairs[band][0]) && 
+			@candlesticks.last.send(pairs[band][1]) == false &&
+			band_break?(-1) == band)
+				puts "Extreme reversal"
+				return true
+			end
 		end
 
 		def outside_bands_to_inside?(band)
-			inside_bands?(-1) && band_break?(-2) == band
+			if(inside_bands?(-1) && 
+			band_break?(-2) == band &&
+			@candlesticks.last.send(pairs[band][0]) && 
+			@candlesticks.last.send(pairs[band][1]) == false)
+				puts "Outside to inside"
+				return true
+			end
+		end
+
+		def pairs
+			{:upper => [:elevated_cci?, :extremely_low_cci?], :lower => [:depressed_cci?, :extremely_low_cci?]}
 		end
 
 		# Reversal Evaluation Methods

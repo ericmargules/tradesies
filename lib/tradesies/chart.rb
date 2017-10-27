@@ -2,7 +2,7 @@ require 'httparty'
 
 module Tradesies
 	class Chart
-		attr_reader :data
+		attr_reader :data, :start_time, :end_time
 
 		def initialize(pair = "BTC_XMR", period = 300, start_time = 0, end_time = 0 )
 			@url = 'https://poloniex.com/public'
@@ -32,7 +32,4 @@ module Tradesies
 			date + ( 60 * 60 * 24 )
 		end
 	end
-end	
-
-# previous start 1491048000
-# previous end 1491591200
+end

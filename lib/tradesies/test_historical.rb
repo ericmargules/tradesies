@@ -6,12 +6,12 @@ module Tradesies
 		attr_reader :chart, :strategy
 		
 		def initialize(argv = [])
-			@chart = Chart.new("USDT_BTC", 300).data
+			@chart = Chart.new("USDT_BTC", 300)
 			@strategy = Strategy.new
 		end
 
 		def test_strategy
-			@chart.each { |candlestick| @strategy.process(candlestick) } 
+			@chart.data.each { |candlestick| @strategy.process(candlestick) } 
 			puts @strategy.wallet.balance
 		end
 	end

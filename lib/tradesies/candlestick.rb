@@ -15,19 +15,19 @@ module Tradesies
       ( below_lower_band || above_upper_band ) if @bands != 0
     end
 
-    def depressed_cci?(cci = -75)
+    def depressed_cci?(cci = -100)
       @cci <= cci
     end
 
-    def elevated_cci?(cci = 75)
+    def elevated_cci?(cci = 100)
       @cci >= cci
     end
 
-    def extremely_high_cci?(cci = 150)
+    def extremely_high_cci?(cci = 200)
       @cci >= cci
     end
 
-    def extremely_low_cci?(cci = -150)
+    def extremely_low_cci?(cci = -200)
       @cci <= cci
     end
     

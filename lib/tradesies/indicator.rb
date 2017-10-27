@@ -20,7 +20,7 @@ module Tradesies
 			end
 		end
 
-		def cci(data, period, a = 0.03) # Commodity Channel Index
+		def cci(data, period, a = 0.015) # Commodity Channel Index
 			# CCI = (Typical Price - 20-period SMA of TP) / (a x Mean Deviation)
 			# Constant(a) = 0.015
 			( tp(data[-1]) - sma_data(data, period) ) / (a * mean_dev(data, period))
