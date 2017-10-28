@@ -24,7 +24,7 @@ module Tradesies
 			options_hash = build_options_hash(candlestick, reversal)
 			candle = options_hash[:orientation] ? Reversal.new(options_hash) : Candlestick.new(options_hash)
 			@candlesticks << candle
-			
+			handle_stop_loss if @trades.any?
 			eval_positions if @candlesticks.length >= 21
 
 			@output.log("Price: #{@current_price}")
@@ -39,7 +39,7 @@ module Tradesies
 		# Trade Methods
 		def make_trade(action)
 			if action == :sell
-				@trades[-1].stop_loss = stop_loss?
+				mark_stop_loss
 				@output.log(open_trades[-1].sell(@current_price)) 
 				@wallet.balance = (@trades[-1].close_price * @trades[-1].units)
 				@output.log(@wallet.balance.to_s)
@@ -52,21 +52,17 @@ module Tradesies
 		end
 
 		def buy(args)
-			# simple strategy
 			make_trade(:buy) if args.any?
-			# advanced strategy || rebound(:lower)
 		end
 
 		def sell(args)
-			#simple strategy
 			make_trade(:sell) if args.any?
-			# advanced strategy || rebound(:upper)
 		end
 
 		# Trade Conditions Methods
 		def trade_conditions(trade)
-			trade == :buy ? [outside_bands_to_inside?(:lower), extreme_reversal_outside_bands(:lower), rebound(:upper)]
-			: [stop_loss?, outside_bands_to_inside?(:upper), extreme_reversal_outside_bands(:upper), rebound(:lower)]			
+			trade == :buy ? [outside_bands_to_inside?(:lower), rebound(:upper)] # extreme_reversal_outside_bands(:lower), 
+			: [stop_loss?, outside_bands_to_inside?(:upper), rebound(:lower)] # extreme_reversal_outside_bands(:upper), 			
 		end
 		
 		def rebound(band)
@@ -78,31 +74,24 @@ module Tradesies
 									:cci => :elevated_cci?}}
 			if (
 			# Previous band breaks
-			band_breaks.any? &&			
+			band_breaks.any? &&
+			# Last band break matches trade type
+			band_breaks.last.outside_bands == band &&			
 			# Last close is reversal
 			last_is_reversal? &&
+			# Reversal price is higher/lower than band break
+			@current_price.send(opposites[band][:operator], band_breaks.last.price) &&
 			# Last orientation is opposite of band
 			@candlesticks.last.orientation == opposites[band][:orientation] &&
 			# Price is at or beyond middle band
 			price_near_sma?(opposites[band][:operator]) &&
 			# Price is inside bands
-			inside_bands?(-1) ) #&&
+			inside_bands?(-2) ) #&&
 			# CCI is elevated or extreme
 			# @candlesticks.last.send(opposites[band][:cci])
 				puts "Rebound"
 				return true
 			end
-		end
-
-		def stop_loss?
-			if @current_price <= ( @trades.last.open_price * 0.98 )
-				puts "STOP LOSS"
-				return true
-			end
-		end
-
-		def stop_loss_cool_down
-			if @trades.last.stop_loss # buy returns nil unless current band coverage is less than stop loss band coverage
 		end
 
 		def extreme_reversal_outside_bands(band)
@@ -117,9 +106,9 @@ module Tradesies
 
 		def outside_bands_to_inside?(band)
 			if(inside_bands?(-1) && 
-			band_break?(-2) == band &&
-			@candlesticks.last.send(pairs[band][0]) && 
-			@candlesticks.last.send(pairs[band][1]) == false)
+			band_break?(-2) == band )#&&
+			# @candlesticks.last.send(pairs[band][0]) && 
+			# @candlesticks.last.send(pairs[band][1]) == false)
 				puts "Outside to inside"
 				return true
 			end
@@ -155,11 +144,48 @@ module Tradesies
 		end
 		
 		def available_buy?
-			open_trades.count < @max_trades
+			if @trades.any? 
+				( open_trades.count < @max_trades ) &&
+				stop_loss_cooldown? == false
+			else
+				open_trades.count < @max_trades
+			end
 		end
 
 		def available_sale?
 			open_trades.any?
+		end
+
+		# Stop Loss Methods
+		def stop_loss?
+			if @current_price <= ( @trades.last.open_price * 0.98 )
+				puts "STOP LOSS"
+				return true
+			end
+		end
+
+		def mark_stop_loss
+			@trades[-1].stop_loss = stop_loss?
+		end
+
+		def handle_stop_loss
+			check_market if stop_loss_cooldown?
+		end
+
+		def check_market
+			cool_stop_loss if market_cooled?
+		end
+
+		def stop_loss_cooldown?
+			@trades[-1].stop_loss == true
+		end
+
+		def cool_stop_loss
+			@trades[-1].stop_loss = :cooled
+		end
+
+		def market_cooled?
+			@candlesticks.last.ema >= @candlesticks.last.bands[:middle_band]
 		end
 
 		# Options_Hash Methods
@@ -174,7 +200,7 @@ module Tradesies
 			options_hash[:low] = candlestick["low"]
 			if enough_candles?
 				options_hash[:sma] = @indicator.sma(prices, 20)
-				options_hash[:ema] = @indicator.ema(prices, 4) 
+				options_hash[:ema] = @indicator.ema(prices, 10) 
 				options_hash[:cci] = @indicator.cci(@candlesticks, 20)
 				options_hash[:bands] = @indicator.bands(prices, 20)
 			end
