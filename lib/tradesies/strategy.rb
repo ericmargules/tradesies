@@ -61,8 +61,8 @@ module Tradesies
 
 		# Trade Conditions Methods
 		def trade_conditions(trade)
-			trade == :buy ? [outside_bands_to_inside?(:lower), rebound(:upper)] # extreme_reversal_outside_bands(:lower), 
-			: [stop_loss?, outside_bands_to_inside?(:upper), rebound(:lower)] # extreme_reversal_outside_bands(:upper), 			
+			trade == :buy ? [outside_bands_to_inside?(:lower), extreme_reversal_outside_bands(:lower), rebound(:upper)]  
+			: [stop_loss?, outside_bands_to_inside?(:upper), extreme_reversal_outside_bands(:upper), rebound(:lower)]  			
 		end
 		
 		def rebound(band)
@@ -86,9 +86,9 @@ module Tradesies
 			# Price is at or beyond middle band
 			price_near_sma?(opposites[band][:operator]) &&
 			# Price is inside bands
-			inside_bands?(-2) ) #&&
+			inside_bands?(-2) &&
 			# CCI is elevated or extreme
-			# @candlesticks.last.send(opposites[band][:cci])
+			@candlesticks.last.send(opposites[band][:cci]) )
 				puts "Rebound"
 				return true
 			end
@@ -96,7 +96,7 @@ module Tradesies
 
 		def extreme_reversal_outside_bands(band)
 			if (last_is_reversal? && 
-			@candlesticks.last.send(pairs[band][0]) && 
+			@candlesticks.last.send(pairs[band][1]) && 
 			@candlesticks.last.send(pairs[band][1]) == false &&
 			band_break?(-1) == band)
 				puts "Extreme reversal"
@@ -106,16 +106,16 @@ module Tradesies
 
 		def outside_bands_to_inside?(band)
 			if(inside_bands?(-1) && 
-			band_break?(-2) == band )#&&
-			# @candlesticks.last.send(pairs[band][0]) && 
-			# @candlesticks.last.send(pairs[band][1]) == false)
+			band_break?(-2) == band &&
+			@candlesticks.last.send(pairs[band][0]) && 
+			@candlesticks.last.send(pairs[band][1]) == false)
 				puts "Outside to inside"
 				return true
 			end
 		end
 
 		def pairs
-			{:upper => [:elevated_cci?, :extremely_low_cci?], :lower => [:depressed_cci?, :extremely_low_cci?]}
+			{:upper => [:elevated_cci?, :extremely_high_cci?], :lower => [:depressed_cci?, :extremely_low_cci?]}
 		end
 
 		# Reversal Evaluation Methods
@@ -150,6 +150,8 @@ module Tradesies
 			else
 				open_trades.count < @max_trades
 			end
+			# Also want to ask whether this is a :lower band break and whether the previous reversal was :upper. 
+			# If there have been one or less reversals, activate market cooldown.
 		end
 
 		def available_sale?
@@ -157,8 +159,8 @@ module Tradesies
 		end
 
 		# Stop Loss Methods
-		def stop_loss?
-			if @current_price <= ( @trades.last.open_price * 0.98 )
+		def stop_loss?(const = 0.98)
+			if @current_price <= ( @trades.last.open_price * const )
 				puts "STOP LOSS"
 				return true
 			end

@@ -5,7 +5,7 @@ module Tradesies
 
 		def self.build_file(data, start_time)
 			CSV.open("/home/eric/Documents/ruby/tradesies/lib/tradesies/#{start_time}.csv", "w") do |csv|
-				csv << ["Price", "Lower Band", "Middle Band", "Upper Band", "EMA" "CCI"]
+				csv << ["Price", "Lower Band", "Middle Band", "Upper Band", "EMA", "CCI"]
 				data.each do |candle|					
 					csv << [candle.price, candle.bands[:lower_band], candle.bands[:middle_band], candle.bands[:upper_band], candle.ema, candle.cci] if candle.bands != 0
 				end
