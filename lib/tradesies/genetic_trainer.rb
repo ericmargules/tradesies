@@ -1,5 +1,5 @@
 module Tradesies
-	class Trainer
+	class Trainer_Individual
 
 		attr_accessor :chromosome
 
@@ -28,5 +28,27 @@ module Tradesies
 			balance + trade_count + lowest_trade
 		end
 
+		def random_gene
+			@chromosome.to_a.sample(1).to_h
+		end
+
+	end
+
+	class Trainer_Coach
+		# The trainer coach will be in charge of creating generations of trainer individuals, 
+		# measuring their fitness, then breeding them, mutating as necessary and kicking off
+		# the next generation.
+		def initialize
+			@history = []
+		end
+
+		def new_generation
+		end
+		
+		def mutate(gene)
+		end
+
+		def breed(individual1, individual2)
+		end
 	end
 end
