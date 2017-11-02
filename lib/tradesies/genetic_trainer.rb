@@ -3,11 +3,11 @@ module Tradesies
 
 		attr_accessor :chromosome
 
-		def initialize
-			@chromosome = chromosome 
+		def initialize(chromosome = nil)
+			@chromosome = chromosome || random_chromosome
 		end
 
-		def chromosome
+		def random_chromosome
 			{
 				:elevated_cci => rand(25..200),
 				:depressed_cci => rand(-200..-25),
@@ -40,15 +40,26 @@ module Tradesies
 		# the next generation.
 		def initialize
 			@history = []
+			@current_population = []
 		end
 
-		def new_generation
+		def new_generation(population)
+			population.times { @current_population << Trainer_Individual.new }
 		end
 		
 		def mutate(gene)
 		end
 
 		def breed(individual1, individual2)
+			chromosome = {}
+			random = individual1.random_gene
+			key = random.keys[0]
+			chromesome[key] = random[key] if !chromosome[key]
+
+			child = Trainer_Individual.new
+		end
+
+		def pair
 		end
 	end
 end
