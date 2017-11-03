@@ -21,6 +21,7 @@ module Tradesies
 		end
 
 		def fitness
+			return 500 * 0.95 if @trades.length == 0
 			balance = @wallet.balance * 0.95
 			trade_count = @trades.length * 0.03
 			lowest_trade = @trades.sort{ |v1, v2| (v1.close_price * v1.units) <=> (v2.close_price * v2.units) }.first
@@ -60,11 +61,7 @@ module Tradesies
 		def mutate(gene)
 		end
 
-		def breed(individual1, individual2)
-			
-			chrom1 = individual1.chromosome
-			chrom2 = individual2.chromosome
-			
+		def breed(chrom1, chrom2)	
 			child_chrom1 = chrom1.to_a.sample( (chrom1.length / 2) ).to_h
 			child_chrom2 = {}
 
