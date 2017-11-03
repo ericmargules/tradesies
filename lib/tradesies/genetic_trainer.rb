@@ -28,8 +28,8 @@ module Tradesies
 			balance + trade_count + lowest_trade
 		end
 
-		def random_gene
-			@chromosome.to_a.sample(1).to_h
+		def mutate
+			@chromosome.each { |k,v| @chromosome[k] = random_chromosome[k] if rand(1..4) < 2 }
 		end
 
 	end
@@ -65,11 +65,10 @@ module Tradesies
 			chrom1 = individual1.chromosome
 			chrom2 = individual2.chromosome
 			
-			child_chrom1 = chrom1.to_a.sample(4).to_h
+			child_chrom1 = chrom1.to_a.sample( (chrom1.length / 2) ).to_h
 			child_chrom2 = {}
 
 			chrom1.each {|k,v| child_chrom2[k] = v if child_chrom1[k] == nil }
-	
 			chrom2.each{ |k,v| child_chrom1[k] ? child_chrom2[k] = v : child_chrom1[k] = v }
 
 			Trainer_Individual.new(child_chrom1), Trainer_Individual.new(child_chrom2)
