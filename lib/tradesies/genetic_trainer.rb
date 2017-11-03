@@ -38,7 +38,17 @@ module Tradesies
 		# The trainer coach will be in charge of creating generations of trainer individuals, 
 		# measuring their fitness, then breeding them, mutating as necessary and kicking off
 		# the next generation.
-		def initialize
+
+		# Requirements:
+		# Create charts that will be fed to individual solutions
+		# Create generations to feed into algo
+		# Close out open trades after individual solutions complete charts
+		# Evaluate fitnesses of individual solutions
+		# Breed/mutate solutions
+		# Maintain historical record of generations
+		# Terminate process at predetermined point or at will.
+
+		def initialize(charts = [])
 			@history = []
 			@current_population = []
 		end
@@ -51,15 +61,28 @@ module Tradesies
 		end
 
 		def breed(individual1, individual2)
-			chromosome = {}
-			random = individual1.random_gene
-			key = random.keys[0]
-			chromesome[key] = random[key] if !chromosome[key]
+			
+			chrom1 = individual1.chromosome
+			chrom2 = individual2.chromosome
+			
+			child_chrom1 = chrom1.to_a.sample(4).to_h
+			child_chrom2 = {}
 
-			child = Trainer_Individual.new
+			chrom1.each {|k,v| child_chrom2[k] = v if child_chrom1[k] == nil }
+	
+			chrom2.each{ |k,v| child_chrom1[k] ? child_chrom2[k] = v : child_chrom1[k] = v }
+
+			Trainer_Individual.new(child_chrom1), Trainer_Individual.new(child_chrom2)
 		end
 
 		def pair
+		end
+
+		def close_trades(individual)
+			individual.open_trades.each do |trade| 
+				trade.sell(individual.current_price)
+				individual.wallet.balance = trade.units * individual.current_price
+			end
 		end
 	end
 end
