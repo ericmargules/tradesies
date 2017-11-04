@@ -21,16 +21,17 @@ module Tradesies
 		end
 
 		def fitness
-			return 500 * 0.95 if @trades.length == 0
-			balance = @wallet.balance * 0.95
-			trade_count = @trades.length * 0.03
+			return 1 if @trades.length == 0
+			balance = ( @wallet.balance - 500 ) >= 0 ? 0 : ( @wallet.balance - 500 ) * 0.95
+			number_of_trades = @trades.length
+			trade_count = 1 / number_of_trades  
 			lowest_trade = @trades.sort{ |v1, v2| (v1.close_price * v1.units) <=> (v2.close_price * v2.units) }.first
 			lowest_trade * 0.02
 			balance + trade_count + lowest_trade
 		end
 
 		def mutate
-			@chromosome.each { |k,v| @chromosome[k] = random_chromosome[k] if rand(1..4) < 2 }
+			@chromosome.each{ |k,v| @chromosome[k] = random_chromosome[k] if rand(1..4) < 2 }
 		end
 
 	end
@@ -54,24 +55,24 @@ module Tradesies
 			@current_population = []
 		end
 
-		def new_generation(population)
-			population.times { @current_population << Trainer_Individual.new }
+		def archive_generation
+			@history << @current_population
 		end
 		
-		def mutate(gene)
+		def new_generation
+			archive_generation
+			@current_population.clear
 		end
 
 		def breed(chrom1, chrom2)	
 			child_chrom1 = chrom1.to_a.sample( (chrom1.length / 2) ).to_h
 			child_chrom2 = {}
 
-			chrom1.each {|k,v| child_chrom2[k] = v if child_chrom1[k] == nil }
+			chrom1.each{ |k,v| child_chrom2[k] = v if child_chrom1[k] == nil }
 			chrom2.each{ |k,v| child_chrom1[k] ? child_chrom2[k] = v : child_chrom1[k] = v }
 
-			Trainer_Individual.new(child_chrom1), Trainer_Individual.new(child_chrom2)
-		end
-
-		def pair
+			@current_population << Trainer_Individual.new(child_chrom1)
+			@current_population << Trainer_Individual.new(child_chrom2)
 		end
 
 		def close_trades(individual)
@@ -80,5 +81,11 @@ module Tradesies
 				individual.wallet.balance = trade.units * individual.current_price
 			end
 		end
+
+		def roulette_selection
+
+		end
+	
 	end
+
 end
