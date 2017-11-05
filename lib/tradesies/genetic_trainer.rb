@@ -30,19 +30,18 @@ module Tradesies
 			# Number of trades should be a minor factor.
 			# Lowest trade should also be a minor factor.
 			return 0 if @trades.length == 0
-			balance = @wallet.balance <= 500 ? 0.5 : ( @wallet.balance - 500 ) * 0.95
-			
-			# Most the number of trades can add to the fitness is (@wallet.balance - 500) * 0.25
-			# Ideal is 1 trade. Decreases has trade count increases
-			number_of_trades = @trades.length
-			trade_count = .5 / number_of_trades
-			
-			# Most lowest trade can add to fitness is (@wallet.balance - 500) * 0.25
-			# Ideal is 500. Decreases as lowest trade decreases
-			lowest_trade = @trades.sort{ |v1, v2| (v1.close_price * v1.units) <=> (v2.close_price * v2.units) }.first
-			lowest_trade * 0.02
+			balance_fitness = @wallet.balance <= 500 ? 0.5 : ( @wallet.balance - 500 ) * 0.95
+			remainder = (balance_fitness / 95) * 2.5
 
-			balance + trade_count + lowest_trade
+			number_of_trades = @trades.length
+			trade_count_fitness = remainder - ( (remainder / 100) * number_of_trades )
+			trade_count_fitness = 0 if trade_count_fitness < 0 
+
+			lowest_trade = @trades.sort{ |v1, v2| (v1.close_price * v1.units) <=> (v2.close_price * v2.units) }.first
+			lowest_trade_fitness = lowest_trade >= 500 ? remainder : remainder - ( ( remainder / 100 ) * ( 500 - lowest_trade ) )
+			lowest_trade_fitness = 0 if lowest_trade_fitness < 0 
+
+			balance_fitness + trade_count_fitness + lowest_trade
 		end
 
 		def mutate
