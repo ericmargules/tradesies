@@ -2,12 +2,14 @@ require_relative 'logger'
 require_relative 'indicator'
 require_relative 'wallet'
 require_relative 'candlestick'
+require_relative 'genetic_trainer'
 
 module Tradesies
-	class Strategy
+	class Strategy < Trainer_Individual
 		attr_reader :trades, :candlesticks, :wallet
 
-		def initialize
+		def initialize(chromosome = nil)
+			@chromosome = chromosome || random_chromosome
 			@output = Logger.new
 			@indicator = Indicator.new
 			@wallet = Wallet.new(500.0)
@@ -15,6 +17,7 @@ module Tradesies
 			@candlesticks = []
 			@current_price = ""
 			@max_trades = 1
+			super()
 		end
 
 		def process(candlestick)
@@ -68,10 +71,10 @@ module Tradesies
 		def rebound(band)
 			opposites = {:upper => {:orientation => :nadir, 
 									:operator => :<=, 
-									:cci => :depressed_cci?}, 
+									:cci => [:depressed_cci?, @chromosome[:depressed_cci]]}, 
 						:lower => {:orientation => :peak, 
 									:operator => :>=, 
-									:cci => :elevated_cci?}}
+									:cci => [:elevated_cci?, @chromosome[:elevated_cci]]}}
 			if (
 			# Previous band breaks
 			band_breaks.any? &&
@@ -88,7 +91,7 @@ module Tradesies
 			# Price is inside bands
 			inside_bands?(-2) &&
 			# CCI is elevated or extreme
-			@candlesticks.last.send(opposites[band][:cci]) )
+			@candlesticks.last.send( opposites[band][:cci][0], opposites[band][:cci][1]) )
 				puts "Rebound"
 				return true
 			end
@@ -96,8 +99,7 @@ module Tradesies
 
 		def extreme_reversal_outside_bands(band)
 			if (last_is_reversal? && 
-			@candlesticks.last.send(pairs[band][1]) && 
-			@candlesticks.last.send(pairs[band][1]) == false &&
+			@candlesticks.last.send( pairs[band][1][0], pairs[band][1][1] ) && 
 			band_break?(-1) == band)
 				puts "Extreme reversal"
 				return true
@@ -107,15 +109,24 @@ module Tradesies
 		def outside_bands_to_inside?(band)
 			if(inside_bands?(-1) && 
 			band_break?(-2) == band &&
-			@candlesticks.last.send(pairs[band][0]) && 
-			@candlesticks.last.send(pairs[band][1]) == false)
+			@candlesticks.last.send( pairs[band][0][0], pairs[band][0][1] ) && 
+			@candlesticks.last.send( pairs[band][1][0], pairs[band][1][1] ) == false)
 				puts "Outside to inside"
 				return true
 			end
 		end
 
 		def pairs
-			{:upper => [:elevated_cci?, :extremely_high_cci?], :lower => [:depressed_cci?, :extremely_low_cci?]}
+			{
+			:upper => [
+				[:elevated_cci?, @chromosome[:elevated_cci]], 
+				[:extremely_high_cci?, @chromosome[:extreme_high_cci]]
+				], 
+			:lower => [
+				[:depressed_cci?, @chromosome[:depressed_cci]], 
+				[:extremely_low_cci?, @chromosome[:extreme_low_cci]]
+				]
+			}
 		end
 
 		# Reversal Evaluation Methods
@@ -159,8 +170,8 @@ module Tradesies
 		end
 
 		# Stop Loss Methods
-		def stop_loss?(const = 0.98)
-			if @current_price <= ( @trades.last.open_price * const )
+		def stop_loss?
+			if @current_price <= ( @trades.last.open_price * @chromosome[:stop_loss_threshold] )
 				puts "STOP LOSS"
 				return true
 			end
@@ -201,10 +212,10 @@ module Tradesies
 			options_hash[:high] = candlestick["high"]
 			options_hash[:low] = candlestick["low"]
 			if enough_candles?
-				options_hash[:sma] = @indicator.sma(prices, 20)
-				options_hash[:ema] = @indicator.ema(prices, 10) 
-				options_hash[:cci] = @indicator.cci(@candlesticks, 20)
-				options_hash[:bands] = @indicator.bands(prices, 20)
+				options_hash[:bands] = @indicator.bands(prices, @chromosome[:bollinger_band_period])
+				# options_hash[:sma] = @indicator.sma(prices, 20)
+				options_hash[:ema] = @indicator.ema(prices, @chromosome[:ema_period]) 
+				options_hash[:cci] = @indicator.cci(@candlesticks, 20, @chromosome[:cci_constant])
 			end
 			if reversal.any?
 				options_hash[:orientation] = reversal[0]
@@ -227,11 +238,13 @@ module Tradesies
 		end
 
 		def enough_candles?
-			@candlesticks.length > 19
+			@candlesticks.length > ( @chromosome[:bollinger_band_period] )  &&			
+			@candlesticks.length > ( @chromosome[:ema_period] * 2 ) 
 		end
 
 		def enough_for_reversal?
-			@candlesticks.length > 21
+			@candlesticks.length > ( @chromosome[:bollinger_band_period] + 1 )  &&
+			@candlesticks.length > ( @chromosome[:ema_period] * 2 ).next
 		end
 
 		# Reversal Recognition Methods
