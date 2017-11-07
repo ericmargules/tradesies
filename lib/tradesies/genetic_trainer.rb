@@ -57,6 +57,8 @@ module Tradesies
 		# breeding them according to fitness, and repeating that process until a specified number
 		# of generations has been reached.
 
+		attr_reader :charts, :history, :current_population
+
 		def initialize(charts = [], data_size = 10, currency_pair = "USDT_BTC", interval = 300)
 			@charts = charts
 			@history = []
@@ -71,7 +73,7 @@ module Tradesies
 				archive_generation
 				new_generation
 			end
-			puts @history.last.sort{ |i1, i2| i1.fitness <=> i2.fitness }.last.wallet.balance
+			# puts @history.last.sort{ |i1, i2| i1.fitness <=> i2.fitness }.last.wallet.balance
 		end
 
 		def test_generation
@@ -82,7 +84,7 @@ module Tradesies
 
 		def run_charts(individual)
 			@charts.each do |chart|
-				individual.process(chart.data)
+				chart.data.each{ |candle| individual.process(candle) }
 				individual.close_trades
 			end
 		end
@@ -92,17 +94,17 @@ module Tradesies
 		end
 
 		def build_first_generation(population)
-			population.times{ @current_population << Trainer_Individual.new }
+			population.times{ @current_population << Strategy.new }
 		end
 
 		def archive_generation
-			@history << @current_population
+			@history << @current_population.dup
 		end
 		
 		def new_generation
 			@current_population.clear
 			while @current_population.length < @history.last.length
-				breed(select_breeding_pair)
+				@current_population += breed(select_breeding_pair)
 			end
 		end
 
@@ -111,8 +113,7 @@ module Tradesies
 			child_chrom2 = {}
 			pair[0].chromosome.each{ |k,v| child_chrom2[k] = v if child_chrom1[k] == nil }
 			pair[1].chromosome.each{ |k,v| child_chrom1[k] ? child_chrom2[k] = v : child_chrom1[k] = v }
-			@current_population << Trainer_Individual.new(child_chrom1)
-			@current_population << Trainer_Individual.new(child_chrom2)
+			[Strategy.new(child_chrom1), Strategy.new(child_chrom2)]
 		end
 
 		def select_breeding_pair

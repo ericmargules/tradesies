@@ -8,7 +8,7 @@ module Tradesies
       @low = options[:low]
       @ema = options[:ema] || 0
       @cci = options[:cci] || 0
-      @bands = options[:bands] || 0
+      @bands = options[:bands] || {:lower_band => 0, :middle_band => 0, :upper_band => 0}
     end
     
     def outside_bands

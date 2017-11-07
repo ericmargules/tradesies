@@ -30,7 +30,7 @@ module Tradesies
 			handle_stop_loss if @trades.any?
 			eval_positions if @candlesticks.length >= 21
 
-			@output.log("Price: #{@current_price}")
+			# @output.log("Price: #{@current_price}")
 		end
 
 		private
@@ -51,6 +51,7 @@ module Tradesies
 				@trades << Trade.new(@current_price, @wallet.balance) 
 				@wallet.balance = 0
 				@output.log(@trades[-1].show_trade)
+				@output.log("Open Trades: #{open_trades.count}")
 			end
 		end
 
@@ -213,7 +214,6 @@ module Tradesies
 			options_hash[:low] = candlestick["low"]
 			if enough_candles?
 				options_hash[:bands] = @indicator.bands(prices, @chromosome[:bollinger_band_period])
-				# options_hash[:sma] = @indicator.sma(prices, 20)
 				options_hash[:ema] = @indicator.ema(prices, @chromosome[:ema_period]) 
 				options_hash[:cci] = @indicator.cci(@candlesticks, 20, @chromosome[:cci_constant])
 			end
@@ -239,12 +239,14 @@ module Tradesies
 
 		def enough_candles?
 			@candlesticks.length > ( @chromosome[:bollinger_band_period] )  &&			
-			@candlesticks.length > ( @chromosome[:ema_period] * 2 ) 
+			@candlesticks.length > ( @chromosome[:ema_period] * 2 ) && 
+			@candlesticks.length > 20
 		end
 
 		def enough_for_reversal?
 			@candlesticks.length > ( @chromosome[:bollinger_band_period] + 1 )  &&
-			@candlesticks.length > ( @chromosome[:ema_period] * 2 ).next
+			@candlesticks.length > ( @chromosome[:ema_period] * 2 ).next && 
+			@candlesticks.length > 20
 		end
 
 		# Reversal Recognition Methods

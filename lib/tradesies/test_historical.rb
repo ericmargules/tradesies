@@ -17,14 +17,14 @@ module Tradesies
 
 		def default_hash
 			{
-			:elevated_cci => 100,
-			:depressed_cci => -100,
-			:extreme_high_cci => 200,
-			:extreme_low_cci => -200,
-			:ema_period => 10,
-			:cci_constant => 0.015,
-			:bollinger_band_period => 20,
-			:stop_loss_threshold => 0.98
+			:stop_loss_threshold=>0.82, 
+			:extreme_low_cci=>-79, 
+			:cci_constant=>0.042, 
+			:depressed_cci=>-56, 
+			:extreme_high_cci=>384, 
+			:elevated_cci=>200, 
+			:ema_period=>16, 
+			:bollinger_band_period=>4}
 			}
 		end
 
