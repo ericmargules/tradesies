@@ -2,6 +2,7 @@ require_relative 'logger'
 require_relative 'indicator'
 require_relative 'wallet'
 require_relative 'candlestick'
+require_relative 'trade'
 require_relative 'genetic_trainer'
 
 module Tradesies

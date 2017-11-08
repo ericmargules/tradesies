@@ -40,7 +40,13 @@ module Tradesies
 		end
 
 		def mutate
-			@chromosome.each{ |k,v| @chromosome[k] = random_chromosome[k] if rand(1..10) < 2 }
+			@chromosome.each do |k,v| 
+				if rand(1..10) < 2
+					tenth = rand(0..(v / 5).abs)
+					@chromosome[k] = rand(1..2) == 1 ? v + tenth : v - tenth
+					v = 0.99 if k == :stop_loss_threshold && @chromosome[k] >= 1
+				end
+			end
 		end
 
 		def close_trades
