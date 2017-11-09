@@ -7,7 +7,9 @@ module Tradesies
 		attr_reader :chromosome
 
 		def initialize
-			mutate
+			mutate_chromosome
+			correct_stop_loss
+			total_mutation
 		end
 
 		def random_chromosome
@@ -39,14 +41,25 @@ module Tradesies
 			balance_fitness + trade_count_fitness + lowest_trade_fitness
 		end
 
-		def mutate
+		def mutate_chromosome
 			@chromosome.each do |k,v| 
 				if rand(1..10) < 2
-					tenth = rand(0..(v / 5).abs)
-					@chromosome[k] = rand(1..2) == 1 ? v + tenth : v - tenth
-					v = 0.99 if k == :stop_loss_threshold && @chromosome[k] >= 1
+					mutate_gene(k, v)
 				end
 			end
+		end
+
+		def mutate_gene(key, value)
+			tenth = rand(0..(value / 5).abs)
+			@chromosome[key] = rand(1..2) == 1 ? value + tenth : value - tenth
+		end
+
+		def correct_stop_loss
+			 @chromosome[:stop_loss_threshold] = 0.99 if @chromosome[:stop_loss_threshold] >= 1
+		end
+
+		def total_mutation(a = 60)
+			@chromsome = random_chromosome if rand(1..a) == 1
 		end
 
 		def close_trades
@@ -148,3 +161,12 @@ module Tradesies
 	end
 
 end
+
+# The problem I'm encountering is that after a certain number of generations there is no
+# genetic diversity in the populations anymore, which I think leads to evolutionary dead-ends.
+
+# Possible solutions:
+# Increase mutation rate
+# Increase mutation factor
+# Introduce random new chromosomes into the population every couple generation.
+# Introduce new chromosomes based on best performing chromosome but mutate every gene.
