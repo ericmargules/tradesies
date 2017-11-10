@@ -92,7 +92,6 @@ module Tradesies
 				archive_generation
 				new_generation
 			end
-			# puts @history.last.sort{ |i1, i2| i1.fitness <=> i2.fitness }.last.wallet.balance
 		end
 
 		def test_generation
@@ -161,12 +160,3 @@ module Tradesies
 	end
 
 end
-
-# The problem I'm encountering is that after a certain number of generations there is no
-# genetic diversity in the populations anymore, which I think leads to evolutionary dead-ends.
-
-# Possible solutions:
-# Increase mutation rate
-# Increase mutation factor
-# Introduce random new chromosomes into the population every couple generation.
-# Introduce new chromosomes based on best performing chromosome but mutate every gene.
