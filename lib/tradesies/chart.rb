@@ -4,12 +4,12 @@ module Tradesies
 	class Chart
 		attr_reader :data, :start_time, :end_time
 
-		def initialize(pair = "BTC_XMR", period = 300, start_time = 0, end_time = 0 )
+		def initialize(pair = "BTC_XMR", period = 300, start_time = nil, end_time = nil )
 			@url = 'https://poloniex.com/public'
 			@pair = pair
 			@period = period
-			@start_time = random_date.to_i
-			@end_time = tomorrow(@start_time)	
+			@start_time = start_time || random_date.to_i
+			@end_time = end_time || tomorrow(@start_time)	
 			@data = HTTParty.get(@url, options)
 		end
 
