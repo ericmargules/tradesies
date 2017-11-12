@@ -120,7 +120,7 @@ module Tradesies
 		def archive_generation
 			# If top performer in current population is lower than historical high, 
 			# Replace lowest performing solution with historical high
-			population = best_solution_worse_than_historical_best? ? curve_population : @current_population.dup
+			population = @history.any? && best_solution_worse_than_historical_best? ? curve_population : @current_population.dup
 			@history << population
 		end
 

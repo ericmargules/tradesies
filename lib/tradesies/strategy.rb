@@ -100,22 +100,16 @@ module Tradesies
 		end
 
 		def extreme_reversal_outside_bands(band)
-			if (last_is_reversal? && 
+			last_is_reversal? && 
 			@candlesticks.last.send( pairs[band][1][0], pairs[band][1][1] ) && 
-			band_break?(-1) == band)
-				puts "Extreme reversal"
-				return true
-			end
+			band_break?(-1) == band
 		end
 
 		def outside_bands_to_inside?(band)
-			if(inside_bands?(-1) && 
+			inside_bands?(-1) && 
 			band_break?(-2) == band &&
 			@candlesticks.last.send( pairs[band][0][0], pairs[band][0][1] ) && 
-			@candlesticks.last.send( pairs[band][1][0], pairs[band][1][1] ) == false)
-				puts "Outside to inside"
-				return true
-			end
+			@candlesticks.last.send( pairs[band][1][0], pairs[band][1][1] ) == false
 		end
 
 		def pairs
