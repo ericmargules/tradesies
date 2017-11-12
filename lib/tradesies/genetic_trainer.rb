@@ -116,9 +116,17 @@ module Tradesies
 		end
 
 		def archive_generation
-			@history << @current_population.dup
+			# If top performer in current population is lower than historical high, 
+			# Replace lowest performing solution with historical high
+			population = best_solution_worse_than_historical_best? ? curve_population : @current_population.dup
+			@history << population
 		end
-		
+
+		def curve_population
+			lowest = sort_fitness(@current_population).first
+			@current_population.map{ |i| i == lowest ? historical_high : i }
+		end
+			
 		def new_generation
 			@current_population.clear
 			while @current_population.length < @history.last.length
@@ -156,7 +164,20 @@ module Tradesies
 		def spin_wheel(limit)
 			rand(1.0..limit).round(2)
 		end
-	
+
+		def sort_fitness(generation)
+			generation.sort{ |i1, i2| i1.fitness <=> i2.fitness }
+		end
+
+		def historical_high
+			sort_fitness(@history.map { |gen| sort_fitness(gen).last }).last
+		end
+
+
+		def best_solution_worse_than_historical_best?
+			sort_fitness(@current_population).last.fitness < historical_high.fitness
+		end
+
 	end
 
 end
