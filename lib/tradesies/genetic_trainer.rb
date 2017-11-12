@@ -87,8 +87,10 @@ module Tradesies
 		end
 
 		def train(number_of_generations)
-			number_of_generations.times do
+			number_of_generations.times do |i|
+				puts "Begin Testing Generation #{i}"
 				test_generation
+				puts "Finished Testing Generation #{i}"
 				archive_generation
 				new_generation
 			end
