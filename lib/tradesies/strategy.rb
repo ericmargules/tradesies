@@ -77,7 +77,6 @@ module Tradesies
 						:lower => {:orientation => :peak, 
 									:operator => :>=, 
 									:cci => [:elevated_cci?, @chromosome[:elevated_cci]]}}
-			if (
 			# Previous band breaks
 			band_breaks.any? &&
 			# Last band break matches trade type
@@ -93,10 +92,7 @@ module Tradesies
 			# Price is inside bands
 			inside_bands?(-2) &&
 			# CCI is elevated or extreme
-			@candlesticks.last.send( opposites[band][:cci][0], opposites[band][:cci][1]) )
-				puts "Rebound"
-				return true
-			end
+			@candlesticks.last.send( opposites[band][:cci][0], opposites[band][:cci][1])
 		end
 
 		def extreme_reversal_outside_bands(band)

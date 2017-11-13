@@ -28,12 +28,6 @@ module Tradesies
 			get_public(url, opts)
 		end
 
-		private
-
-		def log(point)
-			puts "The latest price (#{@options.pair}) is: #{point["price"]}"
-		end
-
 	end
 
 end

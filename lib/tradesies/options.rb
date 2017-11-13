@@ -6,7 +6,7 @@ module Tradesies
 		DEFAULT_INTERVAL = '300'
 		attr_reader :pair, :interval, :api_key, :api_secret, :base_url
 
-		def initialize(argv)
+		def initialize(argv=[])
 			@pair = DEFAULT_PAIR
 			@interval = DEFAULT_INTERVAL
 			@api_key = ""
