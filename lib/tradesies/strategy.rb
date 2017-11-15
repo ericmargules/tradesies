@@ -31,11 +31,20 @@ module Tradesies
 			handle_stop_loss if @trades.any?
 			eval_positions if @candlesticks.length >= 21
 
-			# @output.log("Price: #{@current_price}")
+			# Turn price logger on in prod.
+			@output.log(build_log_string)
 		end
 
 		private
 
+		def build_log_string
+			string = ["\e[H\e[2JCurrent Price: #{@current_price}",
+			"Wallet Balance: $#{@wallet.balance.round(2).to_s}",
+			"Open Trades: #{open_trades.count}"]
+			string << "Opening Price: #{open_trades.last.open_price}" if open_trades.any?
+			string.join("\n")
+		end
+		
 		def eval_positions			
 			possible_trades.each{ |trade| send( trade, trade_conditions(trade) ) }
 		end
@@ -46,13 +55,12 @@ module Tradesies
 				mark_stop_loss
 				@output.log(open_trades[-1].sell(@current_price)) 
 				@wallet.balance = (@trades[-1].close_price * @trades[-1].units)
-				@output.log(@wallet.balance.to_s)
+				# @output.log("Balance: $#{@wallet.balance.round(2).to_s}")
 			end
 			if action == :buy
 				@trades << Trade.new(@current_price, @wallet.balance) 
 				@wallet.balance = 0
 				@output.log(@trades[-1].show_trade)
-				@output.log("Open Trades: #{open_trades.count}")
 			end
 		end
 
