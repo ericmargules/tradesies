@@ -4,14 +4,16 @@ module Tradesies
 	class Options
 		DEFAULT_PAIR = 'BTC-USD'
 		DEFAULT_INTERVAL = '300'
-		attr_reader :pair, :interval, :api_key, :api_secret, :base_url
+		DEFAULT_URL = 'https://api.gdax.com'
+		attr_reader :pair, :interval, :api_key, :api_secret, :api_passphrase, :base_url
 
 		def initialize(argv=[])
 			@pair = DEFAULT_PAIR
 			@interval = DEFAULT_INTERVAL
+			@base_url = DEFAULT_URL
 			@api_key = ""
 			@api_secret = ""
-			@base_url = false
+			@api_passphrase = ""
 			parse(argv)
 		end
 		
@@ -19,9 +21,9 @@ module Tradesies
 			OptionParser.new do |opts|
 				opts.banner = "Usage: tradesies [ options ]"
 
-				opts.on("-p", "--pair pairs", "Currencies to query") do |pair|
+				opts.on("-c", "--currencies currencies", "Currencies to query") do |currencies|
 					puts "Test3!"
-					@pair = pair
+					@pair = currencies
 				end
 
 				opts.on("-i", "--interval interval", "Interval for ticker") do |interval|
@@ -36,7 +38,11 @@ module Tradesies
 					@api_secret = api_secret
 				end
 
-				opts.on("-u", "--base_url base_url", "Secret for API") do |base_url|
+				opts.on("-p", "--api_passphrase api_passphrase", "Passphrase for API") do |api_passphrase|
+					@api_passphrase = api_passphrase
+				end
+
+				opts.on("-u", "--base_url base_url", "Base URL for API") do |base_url|
 					@base_url = base_url
 				end
 
