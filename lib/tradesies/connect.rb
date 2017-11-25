@@ -9,8 +9,8 @@ module Tradesies
 	class GDAXConnect
 		attr_reader :options
 
-		def initialize(argv = [])
-			@options = Options.new(argv)
+		def initialize()
+			@options = options
 		end
 
 		def get_public(url, opts = {})

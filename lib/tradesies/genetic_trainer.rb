@@ -82,7 +82,7 @@ module Tradesies
 			@charts = charts
 			@history = []
 			@current_population = []
-			build_first_generation(20)
+			build_first_generation(10)
 			data_size.times{ add_chart(currency_pair, interval) } if @charts.empty?
 		end
 

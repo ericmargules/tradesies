@@ -11,23 +11,41 @@ module Tradesies
 
 		def initialize(chromosome = nil)
 			@chromosome = chromosome || random_chromosome
+			@regular_chromosome = regular_chromosome
+			@rally_chromosome = rally_chromosome
+			@rally_candles = []
+			@regular_candles = []
+			@trades = []
+			@candlesticks = @regular_candles
+			@current_price = ""
+			@max_trades = 1
 			@output = Logger.new
 			@indicator = Indicator.new
 			@wallet = Wallet.new(500.0)
-			@trades = []
-			@candlesticks = []
-			@current_price = ""
-			@max_trades = 1
 			super()
 		end
 
+
 		def process(candlestick)
 			@current_price = candlestick["close"]
-			# Only check for reversals after enough data points are gathered
-			reversal = enough_for_reversal? ? reversal? : []
-			options_hash = build_options_hash(candlestick, reversal)
-			candle = options_hash[:orientation] ? Reversal.new(options_hash) : Candlestick.new(options_hash)
-			@candlesticks << candle
+			
+			
+			# Process candlestick data for both solutions
+			{@regular_chromosome => @regular_candles,
+			@rally_chromosome => @rally_candles}.each do |chromosome,candles|
+				# Only check for reversals after enough data points are gathered
+				reversal = enough_for_reversal?(chromosome) ? reversal? : []
+				options_hash = build_options_hash(chromosome, candlestick, reversal)
+				candle = options_hash[:orientation] ? Reversal.new(options_hash) : Candlestick.new(options_hash)
+				candles << candle
+			end
+			
+			# reversal = enough_for_reversal? ? reversal? : []
+			# options_hash = build_options_hash(candlestick, reversal)
+			# candle = options_hash[:orientation] ? Reversal.new(options_hash) : Candlestick.new(options_hash)
+			# @candlesticks << candle
+			
+
 			handle_stop_loss if @trades.any?
 			eval_positions if @candlesticks.length >= 21
 
@@ -202,7 +220,7 @@ module Tradesies
 		end
 
 		# Options_Hash Methods
-		def build_options_hash(candlestick, reversal)
+		def build_options_hash(chromosome, candlestick, reversal)
 			# Hash Options
 			# Candlestick: price, ema*, cci*, bands(hash)*
 			# Switch: orientation, length, coverage
@@ -242,9 +260,9 @@ module Tradesies
 			@candlesticks.length > 20
 		end
 
-		def enough_for_reversal?
-			@candlesticks.length > ( @chromosome[:bollinger_band_period] + 1 )  &&
-			@candlesticks.length > ( @chromosome[:ema_period] * 2 ).next && 
+		def enough_for_reversal?(chromosome)
+			@candlesticks.length > ( chromosome[:bollinger_band_period] + 1 )  &&
+			@candlesticks.length > ( chromosome[:ema_period] * 2 ).next && 
 			@candlesticks.length > 20
 		end
 
@@ -313,6 +331,14 @@ module Tradesies
 
 		def price_near_sma?(operator)
 			@candlesticks.last.price.send(operator, @candlesticks.last.bands[:middle_band])
+		end
+
+		def rally_chromosome
+			{:extreme_high_cci=>95, :depressed_cci=>-73, :stop_loss_threshold=>0.5016457566150171, :elevated_cci=>153, :extreme_low_cci=>-223, :cci_constant=>0.01117468489359353, :ema_period=>25, :bollinger_band_period=>5}
+		end
+
+		def regular_chromosome
+			{:extreme_high_cci=>145, :stop_loss_threshold=>0.82, :bollinger_band_period=>5, :ema_period=>16, :extreme_low_cci=>-79, :elevated_cci=>179, :cci_constant=>0.042, :depressed_cci=>-56}
 		end
 
 	end
